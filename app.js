@@ -10,7 +10,7 @@ const pad=n=>String(n).padStart(2,'0');
 const localDate=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const monthKey=(d=new Date())=>localDate(d).slice(0,7);
 const shiftMonth=(m,step)=>{const [y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+step,1);return monthKey(d)};
-const monthName=m=>new Date(+m.slice(0,4),+m.slice(5,7)-1,1).toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
+const monthName=m=>new Date(+m.slice(0,4),+m.slice(5,7)-1,1).toLocaleDateString(document.documentElement.lang==='en'?'en-US':'ar-EG',{month:'long',year:'numeric'});
 const displayDate=s=>{if(!s)return '—';const a=s.slice(0,10).split('-');return `${a[2]||''}/${a[1]||''}/${a[0]||''}`};
 const money=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2,minimumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
