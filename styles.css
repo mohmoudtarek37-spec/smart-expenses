@@ -56,8 +56,8 @@
   background:linear-gradient(145deg,var(--glass-hi),var(--glass-lo));
   border:1px solid var(--glass-border);
   box-shadow:var(--glass-shadow);
-  -webkit-backdrop-filter:blur(17px) saturate(135%);
-  backdrop-filter:blur(17px) saturate(135%);
+  /* Visual glass comes from gradients and reflections. Per-card backdrop blur
+     forces costly repeated compositing when cards move during scrolling. */
 }
 .card,.stat,.month-bar,.install-item,.icon-button,.chip{transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
 .clickable:active,.icon-button:active,.chip:active{transform:scale(.985)}
@@ -135,3 +135,24 @@
 }
 
 @media(max-width:400px){.topbar{padding-inline:12px;gap:6px}.brand{gap:7px}.topbar .brand-icon{width:34px;height:34px;flex:none}.brand-title{font-size:18px}.brand-sub{font-size:9px}.top-actions{gap:4px}.topbar .icon-button{width:35px;height:35px;flex:none}.main{padding-inline:12px}.banner-area{padding-inline:12px}}
+
+/* Mobile performance: blur only persistent overlays, never scrolling cards.
+   This retains the frosted gradient, border highlights, and glass shadows. */
+.bottom-nav{
+  -webkit-backdrop-filter:blur(8px) saturate(115%);
+  backdrop-filter:blur(8px) saturate(115%);
+}
+.modal{
+  -webkit-backdrop-filter:blur(7px);
+  backdrop-filter:blur(7px);
+}
+.bottom-nav .fab{
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+}
+@media(prefers-reduced-motion:reduce){
+  .bottom-nav,.modal,.bottom-nav .fab{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+}
