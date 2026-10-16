@@ -190,7 +190,7 @@
       root.dataset.wallpaper='default';put(keyPhotoMode,'default');updateWallpaperSettings();
     }else if(mode==='photo'&&photoStored){
       if(photoUrl){root.dataset.wallpaper='photo';put(keyPhotoMode,'photo');updateWallpaperSettings();}
-      else loadPhoto().catch(()=>{});
+      else{put(keyPhotoMode,'photo');loadPhoto().catch(()=>{});}
     }
   }
   function chooseWallpaperEffect(effect){
