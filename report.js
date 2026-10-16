@@ -67,10 +67,6 @@ async function exportMonthlyPdf(){
        const date=String(t.date||'');
        let hhmm='';
        if(t.time&&/^\d\d:\d\d/.test(t.time))hhmm=t.time.slice(0,5);
-       else if(t.createdAt&&/^\d{4}-\d{2}-\d{2}T\d\d:\d\d/.test(t.createdAt)){
-         const stamp=new Date(t.createdAt);
-         if(Number.isFinite(stamp.getTime()))hhmm=stamp.toLocaleTimeString(en?'en-GB':'ar-EG',{hour:'2-digit',minute:'2-digit',hour12:false});
-       }
        const dateText=date+(hhmm?' '+hhmm:'');
        const kind=t.type==='deposit'?(en?'Deposit':'إيداع'):(en?'Withdrawal':'سحب');
        const name=(t.note||t.category||t.source||'—')+(t.excluded?(en?' (excluded)':' (مستبعدة)'):'');
