@@ -244,22 +244,46 @@
   "لا توجد رسائل داخل الملف": "No messages in file",
   "تعذر قراءة ملف الرسائل": "Could not read message file",
   "حصل خطأ أثناء فتح التطبيق. جرّب تحديث الصفحة، واحتفظ بنسخة من بيانات المتصفح قبل أي مسح.": "The app couldn't load. Try refreshing, and keep a backup before clearing browser data.",
-  "مثال: Your card has been debited with EGP 850.00 at Carrefour...": "Example: Your card has been debited with EGP 850.00 at Carrefour..."
+  "مثال: Your card has been debited with EGP 850.00 at Carrefour...": "Example: Your card has been debited with EGP 850.00 at Carrefour...",
+  "تخصيص التطبيق": "Personalization",
+  "الاسم المعروض": "Display name",
+  "غيّر اسم الترحيب اللي فوق": "Update the name in the welcome message",
+  "تغيير الاسم": "Change name",
+  "لون التمييز": "Accent color",
+  "اختر اللون المفضل للأيقونات والأزرار": "Choose a color for icons and buttons",
+  "أصفر": "Yellow",
+  "أخضر فاتح": "Mint green",
+  "برتقالي": "Orange",
+  "أزرق": "Blue",
+  "أخضر": "Green",
+  "شفافية الزجاج": "Glass appearance",
+  "Clear زجاج شفاف • Blur زجاج ضبابي": "Clear transparent glass • Blur frosted glass",
+  "اكتب اسمك": "Enter your name",
+  "أهلاً يا": "Hello,",
+  "أهلًا بيك": "Welcome",
+  "أهلًا بيك في حساباتي": "Welcome to My Accounts",
+  "تحب نناديك بإيه؟ اسمك هيتحفظ على جهازك بس.": "What should we call you? Your name stays on this device.",
+  "اسمك": "Your name",
+  "ابدأ": "Continue"
 };
   const entries=Object.entries(dict).sort((a,b)=>b[0].length-a[0].length);
   const textOriginal=new WeakMap(),textApplied=new WeakMap();
+  const translateCache=new Map();
   const attrOriginal=new WeakMap(),attrApplied=new WeakMap();
   const skipSelector='script,style,noscript,textarea,code,pre,.txn-name,.txn-meta,.install-title,.receipt,.preview-raw,.sms-preview,.sms-result,.sms-results,.money,.large-amount,.chart-label,.txn-amt';
   let lang='ar';
   try{lang=localStorage.getItem(key)==='en'?'en':'ar'}catch(e){}
   function english(s){
     if(!s || !/[\u0600-\u06ff]/.test(s))return s;
+    if(translateCache.has(s))return translateCache.get(s);
     const exact=dict[s.trim()];
-    if(exact)return s.replace(s.trim(),exact);
+    if(exact){const v=s.replace(s.trim(),exact);translateCache.set(s,v);return v;}
     let result=s;
     for(const [ar,en] of entries){
       if(result.includes(ar))result=result.split(ar).join(en);
     }
+    if(translateCache.size>600)translateCache.clear();
+    translateCache.set(s,result);
     return result;
   }
   function patchNode(node){
