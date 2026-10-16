@@ -1,6 +1,6 @@
-/* حساباتي — v1.0.0. Offline-first. No network APIs used for financial data. */
+/* حساباتي — v1.3.0. Offline-first. No network APIs used for financial data. */
 'use strict';
-const VERSION='1.0.0', SCHEMA=1;
+const VERSION='1.3.0', SCHEMA=1;
 const CATEGORIES=['مشتريات','مصاريف شحن','اشتراكات','كهرباء','مياه','مستلزمات بيت','مصاريف شخصية','أقساط','مطاعم','صحة','مواصلات','فواتير','أخرى'];
 const CAT_ICONS={'مشتريات':'🛍','مصاريف شحن':'📱','اشتراكات':'🔁','كهرباء':'💡','مياه':'💧','مستلزمات بيت':'🏠','مصاريف شخصية':'👤','أقساط':'📅','مطاعم':'🍽','صحة':'💊','مواصلات':'🚗','فواتير':'🧾','أخرى':'◈','راتب':'💼','تحويل وارد':'↙','إيداع':'💰'};
 const SOURCES=['CIB','البنك الأهلي','بنك مصر','InstaPay','Vodafone Cash','Orange Cash','Etisalat Cash','WE Pay','نقدي','مصدر آخر'];
