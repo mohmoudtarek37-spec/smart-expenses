@@ -29,10 +29,10 @@
   "الإجمالي − السحب": "Total minus withdrawals",
   "خرجت خلال الشهر": "Spent this month",
   "تفاصيل المبالغ الواردة": "Incoming transactions",
-  "نسبة المصروفات": "Spending ratio",
+  "نسبة المصروفات": "Expense ratio",
   "نسبة السحب من إجمالي إيداعات الشهر": "Withdrawals as a share of monthly deposits",
   "أضف أول إيداع لعرض نسبة المصروفات": "Add your first deposit to see spending ratio",
-  "مصروفاتك تجاوزت الإيداعات": "Spending exceeded deposits",
+  "مصروفاتك تجاوزت الإيداعات": "Expenses exceed deposits",
   "المصروفات حسب التصنيف": "Spending by category",
   "التفاصيل": "Details",
   "آخر المعاملات": "Recent transactions",
@@ -264,13 +264,31 @@
   "أهلًا بيك في حساباتي": "Welcome to My Accounts",
   "تحب نناديك بإيه؟ اسمك هيتحفظ على جهازك بس.": "What should we call you? Your name stays on this device.",
   "اسمك": "Your name",
-  "ابدأ": "Continue"
+  "ابدأ": "Continue",
+  "بينك": "Pink",
+  "خلفية التطبيق": "App background",
+  "اختار صورتك أو ارجع للخلفية العادية. الصورة محفوظة على جهازك فقط.": "Choose a photo or return to the default background. Your photo stays on this device.",
+  "نوع الخلفية": "Background type",
+  "الخلفية العادية": "Default background",
+  "صورتي": "My photo",
+  "اختيار صورة": "Choose photo",
+  "حذف صورة الخلفية": "Remove wallpaper photo",
+  "وضوح صورة الخلفية": "Photo clarity",
+  "واضحة": "Clear",
+  "تقدر تختار صورة من موبايلك.": "Choose a photo from your device.",
+  "صورتك محفوظة على الجهاز، وتقدر تبدّلها أو تحذفها.": "Your photo is saved on this device. You can replace or remove it.",
+  "اختار صورة من موبايلك عشان تستخدمها كخلفية.": "Choose a photo to use as the background.",
+  "تم حفظ الصورة على جهازك.": "Photo saved to your device.",
+  "تم حذف صورة الخلفية.": "Wallpaper photo removed.",
+  "جاري تجهيز الصورة على جهازك...": "Preparing photo on your device...",
+  "من إجمالي الإيداعات": "of total deposits",
+  "أضف إيداعًا لعرض النسبة": "Add a deposit to see this ratio"
 };
   const entries=Object.entries(dict).sort((a,b)=>b[0].length-a[0].length);
   const textOriginal=new WeakMap(),textApplied=new WeakMap();
   const translateCache=new Map();
   const attrOriginal=new WeakMap(),attrApplied=new WeakMap();
-  const skipSelector='script,style,noscript,textarea,code,pre,.txn-name,.txn-meta,.install-title,.receipt,.preview-raw,.sms-preview,.sms-result,.sms-results,.money,.large-amount,.chart-label,.txn-amt';
+  const skipSelector='#welcomeName,#profileNameCaption,script,style,noscript,textarea,code,pre,.txn-name,.txn-meta,.install-title,.receipt,.preview-raw,.sms-preview,.sms-result,.sms-results,.money,.large-amount,.chart-label,.txn-amt';
   let lang='ar';
   try{lang=localStorage.getItem(key)==='en'?'en':'ar'}catch(e){}
   function english(s){
