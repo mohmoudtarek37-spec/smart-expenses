@@ -86,7 +86,7 @@
 .stats-breakdown .stat small{font-size:10px}
 .stats-breakdown .stat-icon{font-size:15px}
 .bottom-nav,:root[data-theme="light"] .bottom-nav{
-  grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   align-items:end;
   gap:2px;
   border-radius:24px 24px 0 0;
@@ -133,3 +133,5 @@
 @media(prefers-reduced-motion:reduce){
   .card,.stat,.icon-button,.chip,.install-item,.month-bar{transition:none}
 }
+
+@media(max-width:400px){.topbar{padding-inline:12px;gap:6px}.brand{gap:7px}.topbar .brand-icon{width:34px;height:34px;flex:none}.brand-title{font-size:18px}.brand-sub{font-size:9px}.top-actions{gap:4px}.topbar .icon-button{width:35px;height:35px;flex:none}.main{padding-inline:12px}.banner-area{padding-inline:12px}}
