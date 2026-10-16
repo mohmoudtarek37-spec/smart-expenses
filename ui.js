@@ -127,7 +127,7 @@ document.addEventListener('click',e=>{
 window.addEventListener('resize',updateNav,{passive:true});
 window.addEventListener('pageshow',()=>{updateGreeting();updateNav()});
 function init(){
- root.dataset.wallpaper='default';root.style.removeProperty('--user-wallpaper');
+
  if(!accents.includes(root.dataset.accent))root.dataset.accent='yellow';
  if(!['clear','blur'].includes(root.dataset.glass))root.dataset.glass='clear';
  updateGreeting();updateSettings();updateNav();
