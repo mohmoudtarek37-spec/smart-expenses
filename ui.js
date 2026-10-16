@@ -1,271 +1,138 @@
-/* Personalization and lightweight glass navigation. No access to financial records. */
+/* UI preferences only. Financial records remain in their own storage. */
 (()=>{
-  'use strict';
-  const root=document.documentElement;
-  const keyName='hesabaty_ui_user_name';
-  const keyAccent='hesabaty_ui_accent';
-  const keyGlass='hesabaty_ui_glass';
-  const accents=['yellow','mint','orange','blue','pink'];
-  const keyPhotoMode='hesabaty_ui_wallpaper_mode';
-  const keyPhotoEffect='hesabaty_ui_wallpaper_effect';
-  const photoDbName='hesabaty_ui_wallpaper_assets';
-  let photoStored=false,photoUrl='';
-  const get=(key)=>{try{return localStorage.getItem(key)||''}catch(e){return ''}};
-  const put=(key,value)=>{try{localStorage.setItem(key,value)}catch(e){}};
-  const currentLang=()=>root.lang==='en'?'en':'ar';
-  let userName=get(keyName).trim().slice(0,42);
-  let raf=0;
+'use strict';
+const root=document.documentElement;
+const get=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+const put=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const keyAr='hesabaty_ui_user_name_ar',keyEn='hesabaty_ui_user_name_en',legacyKey='hesabaty_ui_user_name';
+const colorKey='hesabaty_ui_accent',glassKey='hesabaty_ui_glass';
+const accents=['yellow','mint','orange','blue','pink'];
+const known=[
+['محمود','Mahmoud'],['محمد','Mohamed'],['أحمد','Ahmed'],['احمد','Ahmed'],
+['إبراهيم','Ibrahim'],['ابراهيم','Ibrahim'],['علي','Ali'],['عمر','Omar'],
+['يوسف','Youssef'],['كريم','Karim'],['أحمد محمد','Ahmed Mohamed'],['نور','Nour'],
+['مصطفى','Mostafa'],['فاطمة','Fatma'],['سارة','Sara'],['مريم','Mariam'],
+['عبدالله','Abdallah'],['عبد الله','Abdallah'],['خالد','Khaled'],['حسن','Hassan'],
+['ياسمين','Yasmin'],['أسماء','Asmaa'],['أسماء محمد','Asmaa Mohamed']
+];
+const arChars={'ا':'a','أ':'a','إ':'i','آ':'a','ب':'b','ت':'t','ث':'th','ج':'g','ح':'h','خ':'kh','د':'d','ذ':'z','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'ou','ي':'y','ى':'a','ئ':'e','ء':''};
+const enSyllables=[['sh','ش'],['kh','خ'],['gh','غ'],['th','ث'],['ph','ف'],['ou','و'],['ee','ي'],['oo','و'],['ch','تش']];
+function toEnglish(name){
+ name=(name||'').trim();if(!name)return '';
+ const direct=known.find(([ar])=>ar===name);if(direct)return direct[1];
+ return name.split(/\s+/).map(w=>{
+   const k=known.find(([ar])=>ar===w);if(k)return k[1];
+   if(!/[\u0600-\u06FF]/.test(w))return w;
+   const output=[...w].map(ch=>arChars[ch]??ch).join('').replace(/aa+/g,'a');
+   return output.charAt(0).toUpperCase()+output.slice(1);
+ }).join(' ').slice(0,42);
+}
+function toArabic(name){
+ name=(name||'').trim();if(!name)return '';
+ const direct=known.find(([,en])=>en.toLowerCase()===name.toLowerCase());if(direct)return direct[0];
+ return name.split(/\s+/).map(word=>{
+   const exact=known.find(([,en])=>en.toLowerCase()===word.toLowerCase());if(exact)return exact[0];
+   if(/[\u0600-\u06FF]/.test(word))return word;
+   let w=word.toLowerCase(),out='';
+   while(w){
+     const digraph=enSyllables.find(([e])=>w.startsWith(e));
+     if(digraph){out+=digraph[1];w=w.slice(digraph[0].length);continue}
+     const c=w[0];
+     const letters={a:'ا',b:'ب',c:'ك',d:'د',e:'ي',f:'ف',g:'ج',h:'ه',i:'ي',j:'ج',k:'ك',l:'ل',m:'م',n:'ن',o:'و',p:'ب',q:'ق',r:'ر',s:'س',t:'ت',u:'و',v:'ف',w:'و',x:'كس',y:'ي',z:'ز'};
+     out+=letters[c]||c;w=w.slice(1);
+   }
+   return out;
+ }).join(' ').slice(0,42);
+}
+let arName=get(keyAr).trim(),enName=get(keyEn).trim();
+if(!arName&&!enName){
+  const old=get(legacyKey).trim();
+  if(/[\u0600-\u06FF]/.test(old)){arName=old;enName=toEnglish(old)}
+  else if(old){enName=old;arName=toArabic(old)}
+}
+const currentLang=()=>root.lang==='en'?'en':'ar';
+let animationFrame=0;
+function updateGreeting(){
+ const en=currentLang()==='en';
+ const val=en?(enName||toEnglish(arName)):(arName||toArabic(enName));
+ const title=document.getElementById('welcomeName');
+ if(title)title.textContent=val?(en?'Welcome, ':'أهلاً يا ')+val+' 👋':(en?'Welcome 👋':'أهلًا بيك 👋');
+ const caption=document.getElementById('profileNameCaption');
+ if(caption)caption.textContent=en?(enName||'Edit your name in both languages'):(arName||'عدّل اسمك بالعربي والإنجليزي');
+}
+function updateSettings(){
+ document.querySelectorAll('[data-pref-accent]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.prefAccent===root.dataset.accent)));
+ document.querySelectorAll('[data-pref-glass]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.prefGlass===root.dataset.glass)));
+ updateGreeting();
+}
+function updateNav(){
+ if(animationFrame)cancelAnimationFrame(animationFrame);
+ animationFrame=requestAnimationFrame(()=>{
+  animationFrame=0;
+  const nav=document.querySelector('.bottom-nav'),marker=nav?.querySelector('.nav-glider'),active=nav?.querySelector('.nav-button.active');
+  if(!nav||!marker)return;
+  if(!active){marker.style.opacity='0';return}
+  const nr=nav.getBoundingClientRect(),ar=active.getBoundingClientRect();
+  marker.style.width=Math.round(ar.width)+'px';
+  marker.style.transform='translate3d('+Math.round(ar.left-nr.left)+'px,0,0)';
+  marker.style.opacity='1';
+ });
+}
+function applyAccent(val){
+ if(!accents.includes(val))return;root.dataset.accent=val;put(colorKey,val);updateSettings();
+}
+function applyGlass(val){
+ if(!['clear','blur'].includes(val))return;root.dataset.glass=val;put(glassKey,val);updateSettings();
+}
+function profileDialog(force=false){
+ if(document.querySelector('.profile-overlay'))return;
+ const en=currentLang()==='en';
+ const dialog=document.createElement('div');dialog.className='profile-overlay';
+ dialog.innerHTML='<section class="profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profileTitle">'+
+  '<h2 id="profileTitle"></h2><p id="profileHint"></p><form id="profileForm">'+
+  '<label for="profileNameAr">الاسم بالعربي</label><input id="profileNameAr" maxlength="42" dir="rtl" autocomplete="given-name">'+
+  '<label for="profileNameEn">Name in English</label><input id="profileNameEn" maxlength="42" dir="ltr" autocomplete="given-name">'+
+  '<button type="submit" class="btn block" id="profileSubmit"></button></form></section>';
+ const set=(id,value)=>dialog.querySelector('#'+id).textContent=value;
+ set('profileTitle',en?'Welcome to My Accounts 👋':'أهلًا بيك في حساباتي 👋');
+ set('profileHint',en?'Add or adjust your name in Arabic and English. We can suggest the other spelling automatically.':'اكتب اسمك بأي لغة، وهنقترح الكتابة التانية تلقائيًا، وتقدر تصححها.');
+ set('profileSubmit',en?'Save name':'حفظ الاسم');
+ const ar=dialog.querySelector('#profileNameAr'),eng=dialog.querySelector('#profileNameEn');
+ ar.value=arName;eng.value=enName;
+ let editedAr=Boolean(arName),editedEn=Boolean(enName);
+ ar.addEventListener('input',()=>{editedAr=true;if(!editedEn)eng.value=toEnglish(ar.value)});
+ eng.addEventListener('input',()=>{editedEn=true;if(!editedAr)ar.value=toArabic(eng.value)});
+ dialog.querySelector('#profileForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  let av=ar.value.trim().replace(/\s+/g,' ').slice(0,42),ev=eng.value.trim().replace(/\s+/g,' ').slice(0,42);
+  if(!av&&!ev){(en?eng:ar).focus();return}
+  if(!av)av=toArabic(ev);
+  if(!ev)ev=toEnglish(av);
+  arName=av;enName=ev;
+  put(keyAr,av);put(keyEn,ev);put(legacyKey,av);
+  dialog.remove();updateGreeting();
+ });
+ if(!force)dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.remove()});
+ document.body.appendChild(dialog);
+ requestAnimationFrame(()=>(en?eng:ar).focus());
+}
+document.addEventListener('click',e=>{
+ const a=e.target.closest('[data-pref-accent]');
+ if(a){applyAccent(a.dataset.prefAccent);return}
+ const g=e.target.closest('[data-pref-glass]');
+ if(g){applyGlass(g.dataset.prefGlass);return}
+ if(e.target.closest('[data-profile-edit]')){profileDialog(false);return}
+ if(e.target.closest('#langToggle'))requestAnimationFrame(()=>{updateGreeting();updateSettings();updateNav()});
+});
+window.addEventListener('resize',updateNav,{passive:true});
+window.addEventListener('pageshow',()=>{updateGreeting();updateNav()});
+function init(){
 
-  function updateGreeting(){
-    const label=document.getElementById('welcomeName');
-    const en=currentLang()==='en';
-    if(label)label.textContent=userName?(en?'Welcome, ':'أهلاً يا ')+userName+' 👋':(en?'Welcome 👋':'أهلًا بيك 👋');
-    const caption=document.getElementById('profileNameCaption');
-    if(caption)caption.textContent=userName?userName:(en?'Add your name':'اكتب اسمك');
-  }
-  function updateSettings(){
-    document.querySelectorAll('[data-pref-accent]').forEach(b=>{
-      b.setAttribute('aria-pressed',String(b.dataset.prefAccent===root.dataset.accent));
-    });
-    document.querySelectorAll('[data-pref-glass]').forEach(b=>{
-      b.setAttribute('aria-pressed',String(b.dataset.prefGlass===root.dataset.glass));
-    });
-    updateGreeting();
-    updateWallpaperSettings();
-  }
-  function updateNav(){
-    if(raf)cancelAnimationFrame(raf);
-    raf=requestAnimationFrame(()=>{
-      raf=0;
-      const nav=document.querySelector('.bottom-nav');
-      const marker=nav?.querySelector('.nav-glider');
-      const active=nav?.querySelector('.nav-button.active');
-      if(!nav||!marker)return;
-      if(!active){marker.style.opacity='0';return;}
-      const nb=nav.getBoundingClientRect(),ab=active.getBoundingClientRect();
-      const left=Math.round(ab.left-nb.left);
-      marker.style.width=Math.round(ab.width)+'px';
-      marker.style.transform='translate3d('+left+'px,0,0)';
-      marker.style.opacity='1';
-    });
-  }
-  function applyAccent(value){
-    if(!accents.includes(value))return;
-    root.dataset.accent=value;
-    put(keyAccent,value);
-    updateSettings();
-  }
-  function applyGlass(value){
-    if(value!=='clear'&&value!=='blur')return;
-    root.dataset.glass=value;
-    put(keyGlass,value);
-    updateSettings();
-  }
-
-  /* Photo wallpaper lives in its own IndexedDB database, separate from expenses. */
-  function photoDb(){
-    return new Promise((resolve,reject)=>{
-      if(!('indexedDB' in window))return reject(new Error('حفظ الصور غير متاح على هذا الجهاز'));
-      const request=indexedDB.open(photoDbName,1);
-      request.onupgradeneeded=()=>{
-        const db=request.result;
-        if(!db.objectStoreNames.contains('images'))db.createObjectStore('images');
-      };
-      request.onsuccess=()=>resolve(request.result);
-      request.onerror=()=>reject(request.error||new Error('تعذر فتح مساحة حفظ الصورة'));
-    });
-  }
-  async function storedPhoto(operation,blob){
-    const db=await photoDb();
-    try{
-      return await new Promise((resolve,reject)=>{
-        const transaction=db.transaction('images',operation==='read'?'readonly':'readwrite');
-        const store=transaction.objectStore('images');
-        const req=operation==='read'?store.get('wallpaper'):operation==='delete'?store.delete('wallpaper'):store.put(blob,'wallpaper');
-        let result;
-        req.onsuccess=()=>{result=req.result};
-        transaction.oncomplete=()=>resolve(result);
-        transaction.onerror=()=>reject(transaction.error||new Error('تعذر حفظ صورة الخلفية'));
-        transaction.onabort=()=>reject(transaction.error||new Error('تعذر حفظ صورة الخلفية'));
-      });
-    }finally{db.close()}
-  }
-  function showWallpaperMessage(text){
-    const el=document.getElementById('wallpaperMessage');
-    if(el)el.textContent=text;
-  }
-  function updateWallpaperSettings(){
-    const isPhoto=root.dataset.wallpaper==='photo';
-    document.querySelectorAll('[data-wallpaper-mode]').forEach(btn=>{
-      btn.setAttribute('aria-pressed',String(btn.dataset.wallpaperMode===(isPhoto?'photo':'default')));
-      btn.disabled=btn.dataset.wallpaperMode==='photo'&&!photoStored;
-    });
-    document.querySelectorAll('[data-wallpaper-effect]').forEach(btn=>{
-      btn.setAttribute('aria-pressed',String(btn.dataset.wallpaperEffect===(root.dataset.wallpaperBlur||'clear')));
-    });
-    const remove=document.querySelector('[data-wallpaper-remove]');
-    if(remove)remove.disabled=!photoStored;
-    showWallpaperMessage(photoStored?'صورتك محفوظة على الجهاز، وتقدر تبدّلها أو تحذفها.':'اختار صورة من موبايلك عشان تستخدمها كخلفية.');
-  }
-  function releasePhotoUrl(){
-    if(photoUrl){URL.revokeObjectURL(photoUrl);photoUrl=''}
-    root.style.removeProperty('--user-wallpaper');
-  }
-  function presentPhoto(blob){
-    if(!(blob instanceof Blob))return false;
-    const url=URL.createObjectURL(blob);
-    releasePhotoUrl();
-    photoUrl=url;
-    root.style.setProperty('--user-wallpaper','url("'+url+'")');
-    root.dataset.wallpaper='photo';
-    photoStored=true;
-    put(keyPhotoMode,'photo');
-    updateWallpaperSettings();
-    return true;
-  }
-  async function loadPhoto(){
-    try{
-      const blob=await storedPhoto('read');
-      photoStored=blob instanceof Blob;
-      if(photoStored && get(keyPhotoMode)==='photo')presentPhoto(blob);
-      else{
-        root.dataset.wallpaper='default';
-        if(!photoStored)put(keyPhotoMode,'default');
-      }
-      updateWallpaperSettings();
-    }catch(e){
-      root.dataset.wallpaper='default';photoStored=false;
-      updateWallpaperSettings();
-      showWallpaperMessage('تعذر قراءة الخلفية المحفوظة من الجهاز.');
-    }
-  }
-  async function compressPhoto(file){
-    if(!file||!file.type.startsWith('image/'))throw new Error('اختار ملف صورة من المعرض.');
-    if(file.size>25*1024*1024)throw new Error('الصورة كبيرة جدًا، اختار صورة أصغر من 25 ميجابايت.');
-    const uri=URL.createObjectURL(file);
-    const img=new Image();
-    try{
-      await new Promise((resolve,reject)=>{
-        img.onload=resolve;
-        img.onerror=()=>reject(new Error('مش قادر أفتح الصورة. جرّب صورة JPG أو PNG.'));
-        img.src=uri;
-      });
-      if(!img.naturalWidth||!img.naturalHeight)throw new Error('الصورة غير صالحة.');
-      const limit=Math.min(1,1280/img.naturalWidth,1920/img.naturalHeight);
-      const canvas=document.createElement('canvas');
-      canvas.width=Math.max(1,Math.round(img.naturalWidth*limit));
-      canvas.height=Math.max(1,Math.round(img.naturalHeight*limit));
-      const ctx=canvas.getContext('2d',{alpha:false});
-      if(!ctx)throw new Error('الجهاز مش قادر يجهز الصورة.');
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      const blob=await new Promise((resolve,reject)=>{
-        canvas.toBlob(out=>out?resolve(out):reject(new Error('تعذر تجهيز الصورة')),'image/jpeg',.78);
-      });
-      canvas.width=canvas.height=0;
-      return blob;
-    }finally{URL.revokeObjectURL(uri)}
-  }
-  async function handlePhotoUpload(file){
-    if(!file)return;
-    showWallpaperMessage('جاري تجهيز الصورة على جهازك...');
-    try{
-      const blob=await compressPhoto(file);
-      await storedPhoto('write',blob);
-      presentPhoto(blob);
-      showWallpaperMessage('تم حفظ الصورة على جهازك.');
-    }catch(e){
-      showWallpaperMessage(e.message||'تعذر حفظ الخلفية.');
-    }
-  }
-  async function removePhoto(){
-    try{
-      await storedPhoto('delete');
-      releasePhotoUrl();photoStored=false;root.dataset.wallpaper='default';
-      put(keyPhotoMode,'default');updateWallpaperSettings();
-      showWallpaperMessage('تم حذف صورة الخلفية.');
-    }catch(e){showWallpaperMessage('تعذر حذف صورة الخلفية.')}
-  }
-  function chooseWallpaper(mode){
-    if(mode==='default'){
-      root.dataset.wallpaper='default';put(keyPhotoMode,'default');updateWallpaperSettings();
-    }else if(mode==='photo'&&photoStored){
-      if(photoUrl){root.dataset.wallpaper='photo';put(keyPhotoMode,'photo');updateWallpaperSettings();}
-      else{put(keyPhotoMode,'photo');loadPhoto().catch(()=>{});}
-    }
-  }
-  function chooseWallpaperEffect(effect){
-    if(effect!=='clear'&&effect!=='blur')return;
-    root.dataset.wallpaperBlur=effect;
-    put(keyPhotoEffect,effect);
-    updateWallpaperSettings();
-  }
-
-  function profileDialog(force){
-    if(document.querySelector('.profile-overlay'))return;
-    const en=currentLang()==='en';
-    const overlay=document.createElement('div');
-    overlay.className='profile-overlay';
-    overlay.innerHTML='<section class="profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profileTitle">'+
-      '<h2 id="profileTitle"></h2><p id="profileHint"></p>'+
-      '<form id="profileForm"><label for="profileInput" id="profileLabel"></label>'+
-      '<input id="profileInput" type="text" maxlength="42" autocomplete="given-name" required />'+
-      '<button class="btn block" type="submit" id="profileSubmit"></button></form></section>';
-    const set=(id,text)=>{overlay.querySelector('#'+id).textContent=text;};
-    set('profileTitle',en?'Welcome to My Accounts 👋':'أهلًا بيك في حساباتي 👋');
-    set('profileHint',en?'What should we call you? Your name stays on this device.':'تحب نناديك بإيه؟ اسمك هيتحفظ على جهازك بس.');
-    set('profileLabel',en?'Your name':'اسمك');
-    set('profileSubmit',en?'Continue':'ابدأ');
-    const input=overlay.querySelector('#profileInput');
-    input.value=userName;
-    overlay.querySelector('#profileForm').addEventListener('submit',e=>{
-      e.preventDefault();
-      const value=input.value.trim().replace(/\s+/g,' ').slice(0,42);
-      if(!value){input.focus();return;}
-      userName=value;
-      put(keyName,userName);
-      overlay.remove();
-      updateGreeting();
-    });
-    if(!force && userName)overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
-    document.body.appendChild(overlay);
-    requestAnimationFrame(()=>input.focus());
-  }
-  document.addEventListener('click',e=>{
-    const a=e.target.closest('[data-pref-accent]');
-    if(a){applyAccent(a.dataset.prefAccent);return;}
-    const g=e.target.closest('[data-pref-glass]');
-    if(g){applyGlass(g.dataset.prefGlass);return;}
-    if(e.target.closest('[data-profile-edit]')){profileDialog(false);return;}
-    if(e.target.closest('[data-wallpaper-upload]')){document.getElementById('wallpaperFileInput')?.click();return;}
-    if(e.target.closest('[data-wallpaper-remove]')){removePhoto();return;}
-    const wall=e.target.closest('[data-wallpaper-mode]');
-    if(wall){chooseWallpaper(wall.dataset.wallpaperMode);return;}
-    const effect=e.target.closest('[data-wallpaper-effect]');
-    if(effect){chooseWallpaperEffect(effect.dataset.wallpaperEffect);return;}
-    if(e.target.closest('#langToggle')){
-      requestAnimationFrame(()=>{updateGreeting();updateSettings();updateNav()});
-    }
-  });
-  document.addEventListener('change',e=>{
-    if(e.target.id==='wallpaperFileInput'){
-      const photo=e.target.files?.[0];
-      e.target.value='';
-      handlePhotoUpload(photo);
-    }
-  });
-  window.addEventListener('resize',updateNav,{passive:true});
-  window.addEventListener('pageshow',()=>{updateGreeting();updateNav()});
-  const init=()=>{
-    if(root.dataset.accent==='green'){root.dataset.accent='pink';put(keyAccent,'pink');}
-    if(!accents.includes(root.dataset.accent))root.dataset.accent='yellow';
-    if(!['clear','blur'].includes(root.dataset.glass))root.dataset.glass='clear';
-    root.dataset.wallpaperBlur=get(keyPhotoEffect)==='blur'?'blur':'clear';
-    root.dataset.wallpaper='default';
-    updateGreeting();updateSettings();updateNav();
-    loadPhoto();
-    if(!userName)profileDialog(true);
-  };
-  window.hesabatyUI={updateNav,updateSettings,updateGreeting,applyAccent,applyGlass};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
-  else init();
+ if(!accents.includes(root.dataset.accent))root.dataset.accent='yellow';
+ if(!['clear','blur'].includes(root.dataset.glass))root.dataset.glass='clear';
+ updateGreeting();updateSettings();updateNav();
+ if(!arName&&!enName)profileDialog(true);
+}
+window.hesabatyUI={updateNav,updateSettings,updateGreeting,applyAccent,applyGlass};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

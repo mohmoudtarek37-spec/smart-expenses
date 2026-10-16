@@ -282,7 +282,15 @@
   "تم حذف صورة الخلفية.": "Wallpaper photo removed.",
   "جاري تجهيز الصورة على جهازك...": "Preparing photo on your device...",
   "من إجمالي الإيداعات": "of total deposits",
-  "أضف إيداعًا لعرض النسبة": "Add a deposit to see this ratio"
+  "أضف إيداعًا لعرض النسبة": "Add a deposit to see this ratio",
+  "تحميل تقرير PDF للشهر": "Download monthly PDF",
+  "تقرير PDF": "PDF report",
+  "اسم المكان أو وصف المعاملة": "Merchant or transaction description",
+  "المحل أو الجهة المكتوبة في الرسالة": "Merchant or payee in the SMS",
+  "الاسم بالعربي": "Arabic name",
+  "عدّل اسمك بالعربي والإنجليزي": "Edit your name in both languages",
+  "تم تجهيز تقرير PDF للشهر": "Monthly PDF is ready",
+  "تعذر إنشاء PDF على هذا الجهاز": "Unable to create PDF on this device"
 };
   const entries=Object.entries(dict).sort((a,b)=>b[0].length-a[0].length);
   const textOriginal=new WeakMap(),textApplied=new WeakMap();
