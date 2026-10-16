@@ -220,7 +220,31 @@
   "صورة": "Image",
   "التالي": "Next",
   "السابق": "Previous",
-  "الآن": "Now"
+  "الآن": "Now",
+  "صيغة بيانات غير معروفة": "Unrecognized data format",
+  "تفاصيل المعاملة": "Transaction details",
+  "نوع العملية يحتاج مراجعة": "Transaction type needs review",
+  "الملف فارغ": "File is empty",
+  "صيغة JSON غير صحيحة": "Invalid JSON format",
+  "تحتاج مراجعة": "Needs review",
+  "المعاملة غير موجودة": "Transaction not found",
+  "موعد للتقويم. افتح الملف وأضف المواعيد إلى Calendar.": "calendar events. Open the file and add the dates to your calendar.",
+  "تم تجهيز نسخة احتياطية؛ احتفظ بيها في Files أو iCloud Drive": "Backup created. Save it to Files or iCloud Drive.",
+  "ملف النسخة الاحتياطية أكبر من المسموح": "Backup file is too large",
+  "النسخة من إصدار أحدث؛ حدث التطبيق أولًا": "Backup comes from a newer version; update the app first",
+  "هتستبدل البيانات الحالية": "This will replace the current data",
+  "عملية) بالنسخة دي": "transactions) with the backup",
+  "عملية). خُد نسخة احتياطية من بياناتك الحالية الأول. هل تؤكد؟": "transactions). Back up your existing data first. Continue?",
+  "تعذر قراءة النسخة الاحتياطية": "Could not read backup",
+  "صيغة استيراد رسائل Shortcuts": "Shortcuts message import format",
+  "مثال ملف JSON:": "Example JSON file:",
+  "أو ملف CSV:": "Or CSV file:",
+  "اتمسحت كل البيانات من التطبيق": "All app data has been deleted",
+  "حجم ملف الرسائل كبير جدًا (الحد 3 ميجابايت)": "Message file exceeds the 3 MB limit",
+  "لا توجد رسائل داخل الملف": "No messages in file",
+  "تعذر قراءة ملف الرسائل": "Could not read message file",
+  "حصل خطأ أثناء فتح التطبيق. جرّب تحديث الصفحة، واحتفظ بنسخة من بيانات المتصفح قبل أي مسح.": "The app couldn't load. Try refreshing, and keep a backup before clearing browser data.",
+  "مثال: Your card has been debited with EGP 850.00 at Carrefour...": "Example: Your card has been debited with EGP 850.00 at Carrefour..."
 };
   const entries=Object.entries(dict).sort((a,b)=>b[0].length-a[0].length);
   const textOriginal=new WeakMap(),textApplied=new WeakMap();
