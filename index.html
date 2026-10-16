@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-180.png" />
   <script>try{document.documentElement.dataset.theme=localStorage.getItem("hesabaty_ui_theme")==="dark"?"dark":"light"}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <script>try{const lang=localStorage.getItem("hesabaty_ui_language")==="en"?"en":"ar";document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr"}catch(e){document.documentElement.lang="ar";document.documentElement.dir="rtl"}</script>
   <link rel="stylesheet" href="styles.css" />
   <title>حساباتي | Smart Expenses</title>
 </head>
@@ -22,14 +23,14 @@
         <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3.5 8.5h17v10a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10Z" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9V7a2 2 0 0 1 2-2h12" stroke="currentColor" stroke-width="1.7"/><path d="M16 13h4.5v3H16a1.5 1.5 0 1 1 0-3Z" stroke="currentColor" stroke-width="1.5"/></svg></div>
         <div><div class="brand-title">حساباتي</div><div class="brand-sub">فلوسك في مكان واحد</div></div>
       </div>
-      <div class="top-actions"><button class="icon-button theme-button" id="themeToggle" type="button" aria-label="تفعيل الوضع الداكن" title="تغيير المظهر"></button><button class="icon-button" id="topSettings" type="button" aria-label="الإعدادات" title="الإعدادات"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a2 2 0 0 1 1.9 1.4l.28.87c.4.16.78.38 1.12.64l.9-.2a2 2 0 0 1 2.13.93l.99 1.72a2 2 0 0 1-.25 2.31l-.63.68c.04.43.04.87 0 1.3l.63.68a2 2 0 0 1 .25 2.31l-.99 1.72a2 2 0 0 1-2.13.93l-.9-.2c-.34.26-.72.48-1.12.64l-.28.87a2 2 0 0 1-1.9 1.4h-2a2 2 0 0 1-1.9-1.4l-.28-.87a7 7 0 0 1-1.12-.64l-.9.2a2 2 0 0 1-2.13-.93l-.99-1.72a2 2 0 0 1 .25-2.31l.63-.68a7 7 0 0 1 0-1.3l-.63-.68a2 2 0 0 1-.25-2.31l.99-1.72a2 2 0 0 1 2.13-.93l.9.2c.34-.26.72-.48 1.12-.64l.28-.87A2 2 0 0 1 10 3.5h2Z"/><circle cx="11" cy="12.5" r="2.4"/></svg></button></div>
+      <div class="top-actions"><button class="icon-button lang-button" id="langToggle" type="button" aria-label="Switch to English" title="Language">EN</button><button class="icon-button theme-button" id="themeToggle" type="button" aria-label="تفعيل الوضع الداكن" title="تغيير المظهر"></button><button class="icon-button" id="topSettings" type="button" aria-label="الإعدادات" title="الإعدادات"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a2 2 0 0 1 1.9 1.4l.28.87c.4.16.78.38 1.12.64l.9-.2a2 2 0 0 1 2.13.93l.99 1.72a2 2 0 0 1-.25 2.31l-.63.68c.04.43.04.87 0 1.3l.63.68a2 2 0 0 1 .25 2.31l-.99 1.72a2 2 0 0 1-2.13.93l-.9-.2c-.34.26-.72.48-1.12.64l-.28.87a2 2 0 0 1-1.9 1.4h-2a2 2 0 0 1-1.9-1.4l-.28-.87a7 7 0 0 1-1.12-.64l-.9.2a2 2 0 0 1-2.13-.93l-.99-1.72a2 2 0 0 1 .25-2.31l.63-.68a7 7 0 0 1 0-1.3l-.63-.68a2 2 0 0 1-.25-2.31l.99-1.72a2 2 0 0 1 2.13-.93l.9.2c.34-.26.72-.48 1.12-.64l.28-.87A2 2 0 0 1 10 3.5h2Z"/><circle cx="11" cy="12.5" r="2.4"/></svg></button></div>
     </header>
     <div id="bannerArea" class="banner-area" aria-live="polite"></div>
     <main id="main" class="main" tabindex="-1"><div class="loading"><span class="spinner"></span> جاري فتح حساباتك...</div></main>
-    <button id="fab" class="fab" aria-label="إضافة معاملة جديدة" title="إضافة معاملة">＋</button>
     <nav class="bottom-nav" aria-label="الصفحات الرئيسية">
       <button data-page="home" class="nav-button active"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></span><span>الرئيسية</span></button>
       <button data-page="transactions" class="nav-button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/></svg></span><span>المعاملات</span></button>
+      <button id="fab" class="fab" type="button" aria-label="إضافة معاملة جديدة" title="إضافة معاملة">＋</button>
       <button data-page="installments" class="nav-button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 15l2 2 5-5"/></svg></span><span>الأقساط</span></button>
       <button data-page="analytics" class="nav-button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20V8M2 21h20"/></svg></span><span>التحليلات</span></button>
       <button data-page="settings" class="nav-button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a2 2 0 0 1 1.9 1.4l.28.87c.4.16.78.38 1.12.64l.9-.2a2 2 0 0 1 2.13.93l.99 1.72a2 2 0 0 1-.25 2.31l-.63.68c.04.43.04.87 0 1.3l.63.68a2 2 0 0 1 .25 2.31l-.99 1.72a2 2 0 0 1-2.13.93l-.9-.2c-.34.26-.72.48-1.12.64l-.28.87a2 2 0 0 1-1.9 1.4h-2a2 2 0 0 1-1.9-1.4l-.28-.87a7 7 0 0 1-1.12-.64l-.9.2a2 2 0 0 1-2.13-.93l-.99-1.72a2 2 0 0 1 .25-2.31l.63-.68a7 7 0 0 1 0-1.3l-.63-.68a2 2 0 0 1-.25-2.31l.99-1.72a2 2 0 0 1 2.13-.93l.9.2c.34-.26.72-.48 1.12-.64l.28-.87A2 2 0 0 1 10 3.5h2Z"/><circle cx="11" cy="12.5" r="2.4"/></svg></span><span>الإعدادات</span></button>
@@ -40,6 +41,7 @@
   <input id="hiddenImport" type="file" accept=".json,application/json" hidden />
   <input id="hiddenSmsFile" type="file" accept=".json,.txt,.csv,text/plain,text/csv,application/json" hidden />
   <script src="theme.js" defer></script>
+  <script src="i18n.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
