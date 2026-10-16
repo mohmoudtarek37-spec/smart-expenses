@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1017" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="حساباتي" />
+  <meta name="description" content="حساباتي - مدير مصروفاتك وأقساطك الشخصي دون سيرفر" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>حساباتي | Smart Expenses</title>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3.5 8.5h17v10a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-10Z" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9V7a2 2 0 0 1 2-2h12" stroke="currentColor" stroke-width="1.7"/><path d="M16 13h4.5v3H16a1.5 1.5 0 1 1 0-3Z" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div><div class="brand-title">حساباتي</div><div class="brand-sub">فلوسك في مكان واحد</div></div>
+      </div>
+      <button class="icon-button" id="topSettings" aria-label="الإعدادات" title="الإعدادات"><span class="icon">⚙</span></button>
+    </header>
+    <div id="bannerArea" class="banner-area" aria-live="polite"></div>
+    <main id="main" class="main" tabindex="-1"><div class="loading"><span class="spinner"></span> جاري فتح حساباتك...</div></main>
+    <button id="fab" class="fab" aria-label="إضافة معاملة جديدة" title="إضافة معاملة">＋</button>
+    <nav class="bottom-nav" aria-label="الصفحات الرئيسية">
+      <button data-page="home" class="nav-button active"><span class="nav-icon">⌂</span><span>الرئيسية</span></button>
+      <button data-page="transactions" class="nav-button"><span class="nav-icon">≡</span><span>المعاملات</span></button>
+      <button data-page="installments" class="nav-button"><span class="nav-icon">▤</span><span>الأقساط</span></button>
+      <button data-page="analytics" class="nav-button"><span class="nav-icon">▥</span><span>التحليلات</span></button>
+      <button data-page="settings" class="nav-button"><span class="nav-icon">⚙</span><span>الإعدادات</span></button>
+    </nav>
+  </div>
+  <div id="modalRoot"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input id="hiddenImport" type="file" accept=".json,application/json" hidden />
+  <input id="hiddenSmsFile" type="file" accept=".json,.txt,.csv,text/plain,text/csv,application/json" hidden />
+  <script src="app.js" defer></script>
+</body>
+</html>
