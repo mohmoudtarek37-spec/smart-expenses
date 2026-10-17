@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hesabaty/screens/signup_page.dart';
 
+Future<void> _tapVisible(WidgetTester tester, String key) async {
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('creating an account is a separate screen, not an immediate API call',
       (tester) async {
@@ -29,8 +36,7 @@ void main() {
     expect(find.byKey(const Key('signup-confirm-password')), findsOneWidget);
     expect(calls, 0);
 
-    await tester.tap(find.byKey(const Key('signup-submit')));
-    await tester.pump();
+    await _tapVisible(tester, 'signup-submit');
     expect(calls, 0);
     expect(find.textContaining('بريدك الإلكتروني كامل'), findsOneWidget);
 
@@ -40,31 +46,38 @@ void main() {
         find.byKey(const Key('signup-password')), 'strong-password-123');
     await tester.enterText(
         find.byKey(const Key('signup-confirm-password')), 'different');
-    await tester.tap(find.byKey(const Key('signup-submit')));
-    await tester.pump();
+    await _tapVisible(tester, 'signup-submit');
     expect(calls, 0);
     expect(find.textContaining('مش مطابق'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('signup-confirm-password')),
         'strong-password-123');
-    await tester.tap(find.byKey(const Key('signup-submit')));
-    await tester.pumpAndSettle();
+    await _tapVisible(tester, 'signup-submit');
     expect(calls, 1);
     expect(find.byKey(const Key('signup-page')), findsNothing);
   });
 
-  testWidgets('registration does not falsely claim success without session',
+  testWidgets('no session keeps user on signup page with clear server guidance',
       (tester) async {
+    var attempts = 0;
     await tester.pumpWidget(MaterialApp(
-      home: const SignUpPage(initialEmail: 'testing@example.com'),
+      home: SignUpPage(
+        initialEmail: 'testing@example.com',
+        register: (email, password) async {
+          attempts++;
+          return false;
+        },
+      ),
     ));
     await tester.enterText(
         find.byKey(const Key('signup-password')), 'password-is-long');
     await tester.enterText(
         find.byKey(const Key('signup-confirm-password')),
         'password-is-long');
-    // Here the user has not submitted; don't call a real auth backend.
-    expect(find.byKey(const Key('signup-submit')), findsOneWidget);
+    await _tapVisible(tester, 'signup-submit');
+    expect(attempts, 1);
+    expect(find.byKey(const Key('signup-page')), findsOneWidget);
+    expect(find.textContaining('Confirm Email'), findsOneWidget);
   });
 
   testWidgets('back to login returns without creating an account',
@@ -85,8 +98,7 @@ void main() {
     )));
     await tester.tap(find.text('ابدأ'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('signup-back')));
-    await tester.pumpAndSettle();
+    await _tapVisible(tester, 'signup-back');
     expect(find.byKey(const Key('signup-page')), findsNothing);
     expect(calls, 0);
   });
