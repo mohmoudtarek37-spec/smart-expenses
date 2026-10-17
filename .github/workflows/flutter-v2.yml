@@ -1,0 +1,57 @@
+name: Flutter V2 Android and iOS Foundation
+
+on:
+  push:
+    branches: [flutter-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-v2-android-preview
+  cancel-in-progress: true
+
+jobs:
+  android-preview:
+    name: Analyze, test and build Android preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android and iOS platform projects
+        run: flutter create --project-name hesabaty --org io.github.mohmoudtarek37spec --platforms=android,ios .
+      - name: Ensure Android INTERNET permission in main manifest
+        run: dart tool/ensure_android_internet.dart
+      - name: Install Hesabaty launcher icon
+        run: |
+          python3 -m venv /tmp/hesabaty-icon-venv
+          /tmp/hesabaty-icon-venv/bin/pip -q install 'Pillow>=10,<13'
+          /tmp/hesabaty-icon-venv/bin/python tool/install_launcher_icon.py
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze --no-pub
+      - name: Widget tests
+        run: flutter test --no-pub
+      - name: Build Android preview APK
+        run: >-
+          flutter build apk --debug --no-pub
+          --dart-define=SUPABASE_URL=https://uusnulmlygtpgwecyuvc.supabase.co
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_ZYP1VZE40T35FIJh0w5hmg_ygnHgPgC
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hesabaty-flutter-v2-android-cloud-preview
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error

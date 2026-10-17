@@ -1,0 +1,35 @@
+name: hesabaty
+description: Hesabaty 2.0 - cross-platform personal finance application
+publish_to: none
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  supabase_flutter: ^2.10.0
+  intl: ^0.20.2
+  flutter_secure_storage: ^9.2.4
+  uuid: ^4.5.1
+  file_selector: ^1.1.0
+  share_plus: ^12.0.2
+  pdf: ^3.13.0
+  printing: ^5.15.1
+  crypto: ^3.0.6
+  in_app_purchase: ^3.3.1
+  url_launcher: ^6.3.2
+  local_auth: ^3.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - branding/hesabaty_launcher.webp
