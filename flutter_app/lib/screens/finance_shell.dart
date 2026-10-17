@@ -27,6 +27,8 @@ class FinanceShell extends StatefulWidget {
     this.isDark = false,
     this.onToggleTheme,
     this.onSignOut,
+    this.onOpenAuth,
+    this.accountEmail,
   });
 
   final List<FinanceEntry> entries;
@@ -35,6 +37,8 @@ class FinanceShell extends StatefulWidget {
   final bool isDark;
   final VoidCallback? onToggleTheme;
   final VoidCallback? onSignOut;
+  final VoidCallback? onOpenAuth;
+  final String? accountEmail;
 
   @override
   State<FinanceShell> createState() => _FinanceShellState();
@@ -1204,8 +1208,55 @@ class _FinanceShellState extends State<FinanceShell> {
       const Text('الإعدادات', style: TextStyle(fontSize: 23,
           fontWeight: FontWeight.w800)),
       const SizedBox(height: 14),
-      _panel(child: Column(children: [
-        ListTile(
+      _panel(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.cloudEnabled) ...[
+            ListTile(
+              key: const Key('account-status'),
+              leading: const Icon(Icons.verified_user_outlined),
+              title: const Text('الحساب متصل'),
+              subtitle: Text(widget.accountEmail ?? 'تم تسجيل الدخول'),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text('بيانات الحساب منفصلة عن معاملات الضيف المحفوظة '
+                  'على نفس الموبايل. المزامنة اختيارية.',
+                  style: TextStyle(fontSize: 12)),
+            ),
+          ] else ...[
+            const ListTile(
+              key: Key('guest-account-status'),
+              leading: Icon(Icons.person_outline),
+              title: Text('استخدام كضيف — بدون حساب'),
+              subtitle: Text('حساباتي شغال عادي، ومش مطلوب تسجيل الدخول.'),
+            ),
+            if (widget.onOpenAuth != null) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text('التسجيل اختياري للمزامنة. '
+                    'معاملات الضيف بتفضل محفوظة على جهازك '
+                    'ومش بتتنقل للحساب تلقائيًا.',
+                    style: TextStyle(fontSize: 12)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: FilledButton.icon(
+                  key: const Key('login-from-settings'),
+                  onPressed: widget.onOpenAuth,
+                  icon: const Icon(Icons.login),
+                  label: const Text('تسجيل الدخول أو إنشاء حساب'),
+                ),
+              ),
+            ] else
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text('المزامنة غير مفعلة في نسخة الاختبار دي.',
+                    style: TextStyle(fontSize: 12)),
+              ),
+          ],
+          const Divider(),
+          ListTile(
           leading: const Icon(Icons.dark_mode_outlined),
           title: const Text('الوضع الداكن'),
           trailing: Switch(
