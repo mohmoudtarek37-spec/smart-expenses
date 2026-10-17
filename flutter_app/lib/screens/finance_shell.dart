@@ -369,7 +369,9 @@ class _FinanceShellState extends State<FinanceShell> {
       border: border ?? Border.all(color: _line),
     ),
     padding: padding ?? const EdgeInsets.all(16),
-    child: child,
+    // ListTiles and InkWells need their own Material ink surface above the
+    // card background, otherwise taps can be invisible or trigger assertions.
+    child: Material(type: MaterialType.transparency, child: child),
   );
 
   Widget _sectionTitle(String title, {String? action, VoidCallback? onTap}) =>
