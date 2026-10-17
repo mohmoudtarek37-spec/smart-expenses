@@ -32,6 +32,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('signup-page')), findsOneWidget);
     expect(find.byKey(const Key('signup-email')), findsOneWidget);
+    expect(find.byKey(const Key('signup-name')), findsOneWidget);
     expect(find.byKey(const Key('signup-password')), findsOneWidget);
     expect(find.byKey(const Key('signup-confirm-password')), findsOneWidget);
     expect(calls, 0);
@@ -42,6 +43,8 @@ void main() {
 
     await tester.enterText(
         find.byKey(const Key('signup-email')), 'example@gmail.com');
+    await tester.enterText(
+        find.byKey(const Key('signup-name')), 'محمود');
     await tester.enterText(
         find.byKey(const Key('signup-password')), 'strong-password-123');
     await tester.enterText(
@@ -69,6 +72,8 @@ void main() {
         },
       ),
     ));
+    await tester.enterText(
+        find.byKey(const Key('signup-name')), 'محمود');
     await tester.enterText(
         find.byKey(const Key('signup-password')), 'password-is-long');
     await tester.enterText(

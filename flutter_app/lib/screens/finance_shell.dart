@@ -160,6 +160,11 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     if (profile is Map && (profile['name']?.toString().trim() ?? '').isNotEmpty) {
       return profile['name'].toString().trim();
     }
+    if (widget.cloudEnabled) {
+      final data = Supabase.instance.client.auth.currentUser?.userMetadata;
+      final name = (data?['full_name'] ?? data?['name'])?.toString().trim() ?? '';
+      if (name.isNotEmpty) return name;
+    }
     final email = widget.accountEmail;
     if (email != null && email.contains('@')) return email.split('@').first;
     return _lang('ضيف', 'Guest');

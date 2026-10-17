@@ -28,6 +28,7 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   late final TextEditingController _email;
+  final _name = TextEditingController();
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   bool _submitting = false;
@@ -46,6 +47,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   void dispose() {
     _email.dispose();
+    _name.dispose();
     _password.dispose();
     _confirmation.dispose();
     super.dispose();
@@ -54,6 +56,7 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<bool> _registerOnSupabase(String email, String password) async {
     final response = await Supabase.instance.client.auth.signUp(
       email: email, password: password,
+      data: {'full_name': _name.text.trim()},
     ).timeout(const Duration(seconds: 25));
     if (response.user == null) {
       throw StateError('The server did not create an account');
@@ -66,10 +69,18 @@ class _SignUpPageState extends State<SignUpPage> {
 
     final email = _email.text.trim();
     final password = _password.text;
+    final fullName = _name.text.trim();
     if (!AuthFeedback.validEmail(email)) {
       setState(() => _feedback = _tr(
         'اكتب بريدك الإلكتروني كامل، زي name@gmail.com.',
         'Enter your complete email, such as name@gmail.com.',
+      ));
+      return;
+    }
+    if (fullName.length < 2 || fullName.length > 60) {
+      setState(() => _feedback = _tr(
+        'اكتب اسمك (من حرفين لحد 60 حرف) علشان يظهر في حسابك.',
+        'Enter your name (2–60 characters) for your profile.',
       ));
       return;
     }
@@ -172,6 +183,19 @@ class _SignUpPageState extends State<SignUpPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
+                  TextField(
+                    key: const Key('signup-name'),
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    maxLength: 60,
+                    autofillHints: const [AutofillHints.name],
+                    decoration: InputDecoration(
+                      labelText: _tr('الاسم', 'Your name'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   TextField(
                     key: const Key('signup-email'),
                     controller: _email,
