@@ -42,7 +42,7 @@ class _FinanceShellState extends State<FinanceShell> {
   final _search = TextEditingController();
   late DateTime _month;
   late List<FinanceEntry> _entries;
-  List<InstallmentPlan> _installments = [];
+  List<InstallmentPlan> _plans = []
   bool _loading = false;
   bool _saving = false;
   String? _loadError;
@@ -105,7 +105,7 @@ class _FinanceShellState extends State<FinanceShell> {
       if (!mounted) return;
       setState(() {
         _entries = ledger.entries;
-        _installments = ledger.installments;
+        _plans = ledger.installments;
         _loading = false;
       });
     } catch (_) {
@@ -125,7 +125,7 @@ class _FinanceShellState extends State<FinanceShell> {
       if (!mounted) return;
       setState(() {
         _entries = next.entries;
-        _installments = next.installments;
+        _plans = next.installments;
         _saving = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -153,7 +153,7 @@ class _FinanceShellState extends State<FinanceShell> {
       builder: (context) => InstallmentEditor(original: original, month: _month),
     );
     if (result == null || !mounted || !_editable) return;
-    var ledger = InstallmentLedger(entries: _entries, installments: _installments);
+    var ledger = InstallmentLedger(entries: _entries, installments: _plans);
     if (result.action == InstallmentEditAction.delete) {
       if (original == null) return;
       ledger = ledger.withoutPlan(original.id);
@@ -172,7 +172,9 @@ class _FinanceShellState extends State<FinanceShell> {
 
   Future<void> _payInstallment(InstallmentPlan plan) async {
     if (!_editable || widget.store is! LedgerStore ||
-        plan.paymentFor(_month) != null) return;
+        plan.paymentFor(_month) != null) {
+      return;
+    }
     final eligible = _entries.where((entry) =>
         entry.type == EntryType.withdrawal && !entry.excluded &&
         FinanceSummary.sameMonth(entry.date, _month) &&
@@ -211,7 +213,7 @@ class _FinanceShellState extends State<FinanceShell> {
         ? DateTime.now() : plan.dueDate(_month);
     try {
       final ledger = InstallmentLedger(
-        entries: _entries, installments: _installments,
+        entries: _entries, installments: _plans,
       ).recordPayment(
         installmentId: plan.id, month: _month, paidOn: payDate,
         newTransactionId: const Uuid().v4(),
@@ -245,7 +247,7 @@ class _FinanceShellState extends State<FinanceShell> {
     if (confirmed != true || !mounted || !_editable) return;
     try {
       final ledger = InstallmentLedger(
-        entries: _entries, installments: _installments,
+        entries: _entries, installments: _plans,
       ).undoPayment(installmentId: plan.id, month: _month);
       await _applyLedger(ledger, 'تم إلغاء تسجيل الدفع.');
     } on StateError {
@@ -690,7 +692,7 @@ class _FinanceShellState extends State<FinanceShell> {
   );
 
   Widget _installments() {
-    final summary = InstallmentMonthSummary(_installments, _month);
+    final summary = InstallmentMonthSummary(_plans, _month);
     final today = DateTime.now();
     return ListView(
       key: const Key('installments-page'),
