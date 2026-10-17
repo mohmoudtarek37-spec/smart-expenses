@@ -51,3 +51,10 @@ flutter build apk --debug
 - Flutter email/password signup uses the real Supabase backend. A successful signup may require an emailed confirmation before sign-in; the Auth page includes a resend action.
 - The Supabase project's default email delivery is not production SMTP. Configure a dedicated SMTP provider and verify email confirmation + actual Android signup on a device. Never disable email confirmation simply to mask sending errors.
 - OAuth / Google sign-in and deep-link callbacks remain pending. This change does **not** claim that production signup has been proven end to end.
+
+## استيراد رسائل SMS (Flutter preview)
+- زر "استيراد SMS" يفتح **ملفًا يختاره المستخدم يدويًا**: TXT (رسائل مفصولة بسطر ---)، CSV (أعمدة sender/date/body)، أو JSON (قائمة رسائل).
+- الحد 3 MB و200 رسالة لكل محاولة. لا نطلب READ_SMS ولا نقرأ صندوق الرسائل مباشرة.
+- تظهر شاشة مراجعة لكل رسالة؛ المكرر وكود OTP والرسائل غير المكتملة لا يسمح بحفظها. يختار المستخدم الرسائل الصحيحة واحدةً واحدة ثم يؤكد.
+- حفظ المعاملات يكون محليًا ويضاف بدون حذف القديم. المزامنة السحابية ما زالت تجريبية/يدوية.
+- التنبؤ بالمبلغ/النوع محافظ؛ على المستخدم مراجعة المعاملات وتصحيح بياناتها بعد الاستيراد.

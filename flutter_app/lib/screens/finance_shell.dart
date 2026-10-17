@@ -9,6 +9,8 @@ import 'package:intl/intl.dart' show NumberFormat;
 import '../finance/backup_codec.dart';
 import '../finance/analytics_models.dart';
 import '../finance/monthly_report.dart';
+import '../finance/sms_import.dart';
+import 'sms_import_review.dart';
 import 'package:printing/printing.dart';
 import '../finance/cloud_sync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -377,6 +379,45 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
+  Future<void> _importSmsFile() async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    try {
+      final file = await openFile(acceptedTypeGroups: [
+        const XTypeGroup(label: 'رسائل SMS',
+            extensions: ['txt', 'csv', 'json']),
+      ]);
+      if (file == null || !mounted || !_editable) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > SmsImportParser.maxBytes) {
+        throw const FormatException('SMS file larger than 3 MB');
+      }
+      final records = SmsImportParser.read(utf8.decode(bytes), file.name);
+      if (!mounted || !_editable) return;
+      final imported = await Navigator.of(context).push<List<FinanceEntry>>(
+        MaterialPageRoute(builder: (context) => SmsImportReview(
+          records: records, existing: _entries,
+        )),
+      );
+      if (imported == null || imported.isEmpty || !mounted || !_editable) return;
+      final next = _currentLedger.withCollections(
+        entries: [..._entries, ...imported],
+        installments: _plans,
+      );
+      await _applyLedger(next, 'تم استيراد الرسائل المختارة على الجهاز فقط.');
+    } on FormatException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('ملف الرسائل غير صالح أو كبير. اختار TXT أو CSV أو JSON، '
+            'بحد أقصى 200 رسالة و3 ميجابايت.'),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر قراءة ملف SMS. مفيش بيانات اتغيرت.'),
+      ));
+    }
+  }
+
   void _comingSoon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('$feature — قيد النقل من نسخة HTML. المعاينة لا تحفظ بيانات.'),
@@ -682,7 +723,7 @@ class _FinanceShellState extends State<FinanceShell> {
         const SizedBox(height: 13),
         Wrap(spacing: 8, children: [
           _action('استيراد رسائل SMS', Icons.sms_outlined,
-              () => _comingSoon('استيراد SMS')),
+              () => _importSmsFile()),
           _action('الأقساط', Icons.calendar_month_outlined,
               () => _goTo(2)),
         ]),
@@ -715,7 +756,7 @@ class _FinanceShellState extends State<FinanceShell> {
         _monthPicker(),
         Wrap(spacing: 8, children: [
           _action('استيراد SMS', Icons.sms_outlined,
-              () => _comingSoon('استيراد SMS')),
+              () => _importSmsFile()),
           _action('تقرير PDF', Icons.download,
               () => _exportMonthlyReport()),
           _action('معاملة يدوية', Icons.add,
