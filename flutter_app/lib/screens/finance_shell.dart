@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/backup_codec.dart';
 import '../finance/analytics_models.dart';
+import 'premium_page.dart';
 import '../finance/monthly_report.dart';
 import '../finance/installment_calendar.dart';
 import '../finance/sms_import.dart';
@@ -1719,6 +1720,18 @@ class _FinanceShellState extends State<FinanceShell> {
           ),
         ],
       ])),
+      const SizedBox(height: 16),
+      if (widget.cloudEnabled)
+        _panel(child: ListTile(
+          key: const Key('premium-settings'),
+          leading: const Icon(Icons.workspace_premium_outlined),
+          title: const Text('حساباتي Premium'),
+          subtitle: const Text('الاشتراك عبر Google Play والتحقق من السيرفر'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) => const PremiumPage()),
+          ),
+        )),
       const SizedBox(height: 16),
       if (widget.cloudEnabled)
         _panel(child: Column(
