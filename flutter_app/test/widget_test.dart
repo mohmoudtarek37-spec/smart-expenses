@@ -353,6 +353,12 @@ void main() {
 
   testWidgets('edits and deletes one existing transaction safely',
       (WidgetTester tester) async {
+    // Keep the transaction and its edit button clear of the floating
+    // bottom navigation on the reference-inspired compact layout.
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final today = DateTime.now();
     final store = _WidgetStore();
     store.entries = [
