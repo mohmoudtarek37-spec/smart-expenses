@@ -114,10 +114,12 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
         }
         return;
       }
-      if (mounted) setState(() {
-        _photo = base64Encode(bytes);
-        _message = '';
-      });
+      if (mounted) {
+        setState(() {
+          _photo = base64Encode(bytes);
+          _message = '';
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _message = _tr(

@@ -1934,8 +1934,10 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             'https://mohmoudtarek37-spec.github.io/smart-expenses/'),
       ));
     } catch (_) {
-      if (mounted) _showCloudMessage(_lang(
-        'تعذر فتح مشاركة الرابط.', 'Could not open sharing.'));
+      if (mounted) {
+        _showCloudMessage(_lang(
+          'تعذر فتح مشاركة الرابط.', 'Could not open sharing.'));
+      }
     }
   }
 
@@ -2032,18 +2034,24 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       if (revision != null) {
         await _rememberCloudRevision(revision);
       }
-      if (mounted) _showCloudMessage(_lang(
-        'تم مسح بيانات هذا الحساب. تسجيل الدخول نفسه لم يُحذف.',
-        'Financial data erased. Your login account still exists.'));
+      if (mounted) {
+        _showCloudMessage(_lang(
+          'تم مسح بيانات هذا الحساب. تسجيل الدخول نفسه لم يُحذف.',
+          'Financial data erased. Your login account still exists.'));
+      }
     } on CloudConflict {
-      if (mounted) _showCloudMessage(_lang(
-        'النسخة السحابية مختلفة؛ وقفنا المسح لحماية بيانات جهاز تاني. '
-        'راجع المزامنة أولًا.',
-        'Cloud data differs. Erase stopped to protect changes on another device.'));
+      if (mounted) {
+        _showCloudMessage(_lang(
+          'النسخة السحابية مختلفة؛ وقفنا المسح لحماية بيانات جهاز تاني. '
+          'راجع المزامنة أولًا.',
+          'Cloud data differs. Erase stopped to protect changes on another device.'));
+      }
     } catch (_) {
-      if (mounted) _showCloudMessage(_lang(
-        'تعذر إكمال المسح؛ راجع الاتصال وحالة البيانات قبل المحاولة مجددًا.',
-        'Could not finish erasing; check connectivity and cloud state.'));
+      if (mounted) {
+        _showCloudMessage(_lang(
+          'تعذر إكمال المسح؛ راجع الاتصال وحالة البيانات قبل المحاولة مجددًا.',
+          'Could not finish erasing; check connectivity and cloud state.'));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
