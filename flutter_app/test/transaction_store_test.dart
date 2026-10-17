@@ -125,6 +125,46 @@ void main() {
     expect(secure.data, isEmpty);
   });
 
+  test('confirmed backup import stores an encrypted rollback snapshot', () async {
+    final storage = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(
+        accountScope: 'owner', storage: storage);
+    final original = FinanceEntry(
+      id: 'original', type: EntryType.deposit, amount: 1000,
+      date: DateTime(2026, 10), category: 'راتب',
+    );
+    await store.save([original]);
+    final incoming = InstallmentLedger(entries: [
+      FinanceEntry(id: 'imported', type: EntryType.withdrawal, amount: 25,
+          date: DateTime(2026, 10), category: 'مطاعم'),
+    ], installments: const []);
+    await store.replaceFromBackup(incoming);
+    expect((await store.load()).single.id, 'imported');
+    final beforeImport = await store.lastImportRestorePoint();
+    expect(beforeImport?.entries.single.id, 'original');
+    // Local rollback can reapply the original after explicit confirmation.
+    await store.saveLedger(beforeImport!);
+    expect((await store.load()).single.id, 'original');
+  });
+
+  test('invalid imported backup cannot overwrite existing local data', () async {
+    final storage = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(
+        accountScope: 'owner', storage: storage);
+    final saved = FinanceEntry(
+      id: 'safe', type: EntryType.deposit, amount: 900,
+      date: DateTime(2026, 10), category: 'راتب',
+    );
+    await store.save([saved]);
+    final bad = InstallmentLedger(entries: const [], installments: [
+      InstallmentPlan(id: 'invalid', name: 'قسط', amount: -7, dueDay: 31,
+          startMonth: DateTime(2026, 1), count: 12),
+    ]);
+    await expectLater(store.replaceFromBackup(bad), throwsFormatException);
+    expect((await store.load()).single.id, 'safe');
+    expect(await store.lastImportRestorePoint(), isNull);
+  });
+
   test('invalid dates cannot be silently normalized when reloaded', () {
     final item = FinanceEntry(
       id: 'id', type: EntryType.deposit, amount: 12,
