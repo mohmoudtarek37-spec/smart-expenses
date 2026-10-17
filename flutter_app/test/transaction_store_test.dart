@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hesabaty/finance/finance_models.dart';
+import 'package:hesabaty/finance/installment_models.dart';
 import 'package:hesabaty/finance/transaction_store.dart';
 
 class _MemorySecureStorage implements PrivateStringStorage {
@@ -67,6 +68,60 @@ void main() {
     final item = FinanceEntry(id: 'duplicate', type: EntryType.deposit,
         amount: 5, date: DateTime(2026, 10), category: 'راتب');
     await expectLater(store.save([item, item]), throwsFormatException);
+    expect(secure.data, isEmpty);
+  });
+
+  test('v1 transaction snapshots upgrade to v2 without lost transactions', () async {
+    final secure = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(accountScope: 'guest', storage: secure);
+    const raw = '{"schemaVersion":1,"entries":[{"id":"old","type":"deposit",'
+        '"amount":500.0,"date":"2026-10-01","category":"راتب"}]}';
+    // Save the legacy bytes at the expected key without modifying them.
+    await store.save([]);
+    final key = secure.data.keys.single;
+    secure.data[key] = raw;
+    final old = await store.loadLedger();
+    expect(old.entries.single.id, 'old');
+    expect(old.installments, isEmpty);
+    await store.save(old.entries);
+    final upgraded = await store.loadLedger();
+    expect(upgraded.entries.single.amount, 500);
+    expect(secure.data[key], contains('"schemaVersion":2'));
+  });
+
+  test('entries and installments are saved together and survive reload', () async {
+    final secure = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(accountScope: 'owner', storage: secure);
+    final plan = InstallmentPlan(
+      id: 'phone', name: 'قسط الموبايل', amount: 1200,
+      dueDay: 31, startMonth: DateTime(2026, 1), count: 12,
+    );
+    final paid = InstallmentLedger(
+      entries: const [], installments: [plan],
+    ).recordPayment(
+      installmentId: 'phone', month: DateTime(2026, 4),
+      paidOn: DateTime(2026, 4, 15), newTransactionId: 'tx-id',
+    );
+    await store.saveLedger(paid);
+    final restored = await store.loadLedger();
+    expect(restored.entries.single.id, 'tx-id');
+    expect(restored.installments.single.paymentFor(DateTime(2026, 4))
+        ?.transactionId, 'tx-id');
+    expect(secure.data.values.single, contains('"installments":'));
+  });
+
+  test('reject broken payment pointers before encrypted write', () async {
+    final secure = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(accountScope: 'owner', storage: secure);
+    final plan = InstallmentPlan(
+      id: 'phone', name: 'قسط', amount: 100, dueDay: 1,
+      startMonth: DateTime(2026, 1), count: 0,
+      payments: [InstallmentPayment(month: DateTime(2026, 4),
+          transactionId: 'missing', date: DateTime(2026, 4, 1))],
+    );
+    await expectLater(
+      store.saveLedger(InstallmentLedger(
+          entries: const [], installments: [plan])), throwsFormatException);
     expect(secure.data, isEmpty);
   });
 
