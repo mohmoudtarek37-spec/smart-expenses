@@ -122,6 +122,20 @@ void main() {
     expect(() => makePlan(dueDay: 32).validate(), throwsFormatException);
   });
 
+  test('inactive historical plan keeps older paid months', () {
+    final payment = InstallmentPayment(
+      month: DateTime(2026, 4),
+      transactionId: 'bank-tx',
+      date: DateTime(2026, 4, 15),
+    );
+    final inactive = makePlan().copyWith(
+      active: false, payments: [payment]);
+    expect(inactive.appliesTo(DateTime(2026, 4)), isFalse);
+    expect(() => inactive.validate(), returnsNormally);
+    final copied = InstallmentPlan.fromJson(inactive.toJson());
+    expect(copied.paymentFor(DateTime(2026, 4))?.transactionId, 'bank-tx');
+  });
+
   test('plan and payment survive a JSON roundtrip', () {
     final ledger = InstallmentLedger(entries: const [],
         installments: [makePlan()]);
