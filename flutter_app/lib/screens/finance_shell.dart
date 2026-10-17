@@ -1,6 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
+import '../finance/backup_codec.dart';
 import '../finance/finance_models.dart';
 import '../finance/installment_models.dart';
 import '../finance/transaction_store.dart';
@@ -838,6 +844,188 @@ class _FinanceShellState extends State<FinanceShell> {
         ]),
       );
 
+  Future<void> _exportBackup() async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تصدير نسخة احتياطية'),
+        content: const Text(
+          'ملف JSON غير مشفّر، وهيحتوي على أرقامك ورسائل البنك '
+          'وصور الإيصالات لو موجودة. احفظه في مكان خاص وآمن '
+          'وما تشاركوش مع أي حد.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, true),
+              child: const Text('اختيار مكان الحفظ')),
+        ],
+      ),
+    );
+    if (approved != true || !mounted || !_editable) return;
+    try {
+      final data = BackupCodec.encode(_currentLedger);
+      final date = DateTime.now();
+      final filename = 'hesabaty-backup-'
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}.json';
+      final result = await FilePicker.saveFile(
+        dialogTitle: 'احفظ نسخة حساباتي الاحتياطية',
+        fileName: filename,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: Uint8List.fromList(utf8.encode(data)),
+      );
+      if (!mounted) return;
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تم حفظ ملف النسخة الاحتياطية. احتفظ بيه في مكان آمن.'),
+        ));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر تصدير النسخة الاحتياطية. راجع مساحة التخزين.'),
+      ));
+    }
+  }
+
+  Future<void> _importBackup() async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        allowMultiple: false,
+        withData: true,
+      );
+      if (picked == null || !mounted || !_editable) return;
+      final file = picked.files.single;
+      if (file.size > BackupCodec.maxBackupBytes) {
+        throw const FormatException('Backup file larger than 35 MB');
+      }
+      final content = file.bytes ??
+          (file.path != null
+              ? await File(file.path!).readAsBytes()
+              : throw const FormatException('Backup file cannot be read'));
+      if (content.length > BackupCodec.maxBackupBytes) {
+        throw const FormatException('Backup file larger than 35 MB');
+      }
+      final preview = BackupCodec.decode(utf8.decode(content));
+      if (!mounted || !_editable) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('مراجعة النسخة المستوردة'),
+          content: SingleChildScrollView(
+            child: Text(
+              'إصدار الملف: ${preview.sourceVersion}\n'
+              'معاملات الملف: ${preview.transactionCount}\n'
+              'أقساط الملف: ${preview.installmentCount}\n'
+              'رسائل البنك: ${preview.smsCount}\n'
+              'الإيصالات: ${preview.receiptCount}\n\n'
+              'الموجود عندك حاليًا: ${_entries.length} معاملة '
+              'و${_plans.length} قسط.\n\n'
+              'الاستيراد هيستبدل بيانات النسخة الحالية بالكامل. '
+              'لو البيانات القديمة موجودة على جهاز تاني أو نسخة HTML '
+              'مش هنلمسها. من الأفضل تصدير نسخة من البيانات الحالية الأول.',
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false),
+                child: const Text('إلغاء')),
+            FilledButton(
+              key: const Key('confirm-backup-import'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('أؤكد الاستبدال'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted || !_editable) return;
+      setState(() => _saving = true);
+      try {
+        final store = widget.store! as LedgerStore;
+        if (store is BackupRestorableStore) {
+          await store.replaceFromBackup(preview.ledger);
+        } else {
+          await store.saveLedger(preview.ledger);
+        }
+        if (!mounted) return;
+        setState(() {
+          _entries = preview.ledger.entries;
+          _plans = preview.ledger.installments;
+          _customCategories = preview.ledger.customCategories;
+          _prefs = preview.ledger.prefs;
+          _createdAt = preview.ledger.createdAt;
+          _month = DateTime(DateTime.now().year, DateTime.now().month);
+          _saving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تم استيراد البيانات على هذا الجهاز فقط. '
+              'المزامنة السحابية لسه قيد التطوير.'),
+        ));
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('فشل الاستيراد. البيانات المحلية القديمة لم تتغير.'),
+        ));
+      }
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('الملف غير صالح أو فيه بيانات غير مدعومة: '
+            '${error.message}'),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر فتح الملف أو استيراده. بياناتك لم تتغير.'),
+      ));
+    }
+  }
+
+  Future<void> _restoreBeforeLastImport() async {
+    if (!_editable || widget.store is! BackupRestorableStore) return;
+    try {
+      final before = await (widget.store! as BackupRestorableStore)
+          .lastImportRestorePoint();
+      if (!mounted) return;
+      if (before == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('مفيش نسخة سابقة محفوظة قبل الاستيراد.'),
+        ));
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('استعادة ما قبل آخر استيراد'),
+          content: Text('هيتم استبدال البيانات الحالية '
+              'ب${before.entries.length} معاملة '
+              'و${before.installments.length} قسط '
+              'كانوا موجودين قبل آخر استيراد. هل تؤكد؟'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false),
+                child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(context, true),
+                child: const Text('استعادة')),
+          ],
+        ),
+      );
+      if (confirmed == true && mounted && _editable) {
+        await _applyLedger(before, 'تمت استعادة بيانات ما قبل آخر استيراد.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر فتح النسخة السابقة. البيانات الحالية لم تتغير.'),
+      ));
+    }
+  }
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
@@ -871,6 +1059,45 @@ class _FinanceShellState extends State<FinanceShell> {
           ),
         ],
       ])),
+      const SizedBox(height: 16),
+      _panel(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('النسخ الاحتياطية',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+          const SizedBox(height: 8),
+          Text('تصدير أو استيراد ملف JSON. الاستيراد بيستبدل بيانات '
+              'النسخة التجريبية بعد ما تراجع عدد المعاملات والأقساط.',
+              style: TextStyle(color: _mutedText, fontSize: 12)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('export-backup'),
+            onPressed: _editable && widget.store is LedgerStore
+                ? _exportBackup : null,
+            icon: const Icon(Icons.file_download_outlined),
+            label: const Text('تصدير نسخة احتياطية'),
+          ),
+          OutlinedButton.icon(
+            key: const Key('import-backup'),
+            onPressed: _editable && widget.store is LedgerStore
+                ? _importBackup : null,
+            icon: const Icon(Icons.file_upload_outlined),
+            label: const Text('استيراد نسخة من HTML أو Flutter'),
+          ),
+          if (widget.store is BackupRestorableStore)
+            TextButton.icon(
+              key: const Key('undo-backup-import'),
+              onPressed: _editable ? _restoreBeforeLastImport : null,
+              icon: const Icon(Icons.restore_outlined),
+              label: const Text('استعادة البيانات قبل آخر استيراد'),
+            ),
+          const SizedBox(height: 8),
+          const Text('تنبيه: ملف JSON غير مشفر. '
+              'احفظه بعيدًا عن الآخرين، وما تعتمدش على النسخة الحالية '
+              'كبديل لتطبيق حساباتي القديم.',
+              style: TextStyle(fontSize: 11)),
+        ],
+      )),
       const SizedBox(height: 16),
       Text('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.',
           style: TextStyle(color: _mutedText, fontSize: 12)),
