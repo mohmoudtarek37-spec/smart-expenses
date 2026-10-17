@@ -164,9 +164,15 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       return profile['name'].toString().trim();
     }
     if (widget.cloudEnabled) {
-      final data = Supabase.instance.client.auth.currentUser?.userMetadata;
-      final name = (data?['full_name'] ?? data?['name'])?.toString().trim() ?? '';
-      if (name.isNotEmpty) return name;
+      // A preview or widget test can render before Supabase is configured.
+      try {
+        final data = Supabase.instance.client.auth.currentUser?.userMetadata;
+        final name =
+            (data?['full_name'] ?? data?['name'])?.toString().trim() ?? '';
+        if (name.isNotEmpty) return name;
+      } catch (_) {
+        // Fall back to the signed-in email or the locally saved profile.
+      }
     }
     final email = widget.accountEmail;
     if (email != null && email.contains('@')) return email.split('@').first;

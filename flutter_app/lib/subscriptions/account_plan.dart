@@ -11,7 +11,9 @@ abstract final class AccountPlan {
   static bool verifiedPremium(Map<String, dynamic>? data, DateTime now) {
     if (data == null || data['product_id'] != productId) return false;
     if (!const {'active', 'grace_period', 'canceled'}
-        .contains(data['status'])) return false;
+        .contains(data['status'])) {
+      return false;
+    }
     final expiresAt =
         DateTime.tryParse(data['expires_at']?.toString() ?? '');
     return expiresAt != null && expiresAt.isAfter(now);
