@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.mohmoudtarek37spec.hesabaty.preview",
+  "appName": "حساباتي (تجريبي)",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
