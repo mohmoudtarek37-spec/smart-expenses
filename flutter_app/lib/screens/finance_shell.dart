@@ -67,6 +67,7 @@ class _FinanceShellState extends State<FinanceShell> {
   Map<String, dynamic> _prefs = {};
   String _createdAt = '';
   int? _cloudRevision;
+  String _autoSyncStatus = '';
   bool _cloudBusy = false;
   bool _loading = false;
   bool _saving = false;
@@ -155,6 +156,7 @@ class _FinanceShellState extends State<FinanceShell> {
         _createdAt = ledger.createdAt;
         _loading = false;
       });
+      if (widget.cloudEnabled) await _restoreCloudIfLocalEmpty();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -181,6 +183,7 @@ class _FinanceShellState extends State<FinanceShell> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(successMessage),
       ));
+      await _autoSyncAfterWrite();
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -344,8 +347,9 @@ class _FinanceShellState extends State<FinanceShell> {
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تم حفظ التغيير على الجهاز فقط، بدون مزامنة سحابية.'),
+        content: Text('تم حفظ التغيير على الجهاز.'),
       ));
+      await _autoSyncAfterWrite();
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -1398,6 +1402,72 @@ class _FinanceShellState extends State<FinanceShell> {
     setState(() => _cloudRevision = revision);
   }
 
+  Future<void> _restoreCloudIfLocalEmpty() async {
+    if (!widget.cloudEnabled || _cloudBusy || !_editable ||
+        _entries.isNotEmpty || _plans.isNotEmpty ||
+        widget.store is! LedgerStore) return;
+    setState(() => _cloudBusy = true);
+    try {
+      final remote = await CloudFinanceSync(Supabase.instance.client).fetch();
+      if (!mounted || remote == null || _entries.isNotEmpty ||
+          _plans.isNotEmpty) return;
+      await _replaceLedgerLocally(remote.ledger);
+      if (!mounted) return;
+      await _rememberCloudRevision(remote.revision);
+      if (mounted) setState(() =>
+          _autoSyncStatus = 'تم استرجاع بيانات الحساب تلقائيًا.');
+    } catch (_) {
+      if (mounted) setState(() => _autoSyncStatus =
+          'تعذر الاسترجاع التلقائي. بيانات الجهاز زي ما هي.');
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _autoSyncAfterWrite() async {
+    if (!widget.cloudEnabled || _cloudBusy || !mounted ||
+        widget.store is! LedgerStore) return;
+    final local = _currentLedger;
+    final checkpoint = _cloudRevision;
+    setState(() {
+      _cloudBusy = true;
+      _autoSyncStatus = 'جاري محاولة المزامنة...';
+    });
+    try {
+      final client = Supabase.instance.client;
+      final accountId = client.auth.currentUser?.id;
+      if (accountId == null || client.auth.currentSession == null) return;
+      final service = CloudFinanceSync(client);
+      final remote = await service.fetch();
+      if (!mounted || client.auth.currentUser?.id != accountId) return;
+      if (remote != null &&
+          (checkpoint == null || remote.revision != checkpoint)) {
+        setState(() => _autoSyncStatus =
+            'تعارض بين الأجهزة: التعديلات محفوظة محليًا. '
+            'الرفع اتوقف علشان مانمسحش نسخة أحدث.');
+        return;
+      }
+      if (remote == null && checkpoint != null) {
+        setState(() => _autoSyncStatus =
+            'السحابة اتغيرت. بياناتك محفوظة على الجهاز.');
+        return;
+      }
+      final revision = await service.push(local, expectedRevision: checkpoint);
+      if (!mounted || client.auth.currentUser?.id != accountId) return;
+      await _rememberCloudRevision(revision);
+      if (mounted) setState(() =>
+          _autoSyncStatus = 'تم حفظ آخر التعديلات سحابيًا.');
+    } on CloudConflict {
+      if (mounted) setState(() => _autoSyncStatus =
+          'جهاز آخر سبقك بتعديلات. تم إيقاف الرفع دون فقد بيانات.');
+    } catch (_) {
+      if (mounted) setState(() => _autoSyncStatus =
+          'الإنترنت أو السحابة غير متاحين. التعديل محفوظ محليًا.');
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
   Future<void> _syncCloudNow() async {
     if (!_editable || _cloudBusy || widget.store is! LedgerStore) return;
     final client = Supabase.instance.client;
@@ -1647,6 +1717,9 @@ class _FinanceShellState extends State<FinanceShell> {
               icon: const Icon(Icons.cloud_sync_outlined),
               label: const Text('مراجعة ومزامنة حسابي الآن'),
             ),
+            if (_autoSyncStatus.isNotEmpty)
+              Text(_autoSyncStatus, key: const Key('cloud-sync-status'),
+                style: const TextStyle(fontSize: 12)),
             if (_cloudBusy) const LinearProgressIndicator(),
           ],
         )),
