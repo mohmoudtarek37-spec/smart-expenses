@@ -248,7 +248,8 @@ class _SignInPageState extends State<_SignInPage> {
       if (mounted) {
         setState(() {
           _statusIsError = true;
-          _status = AuthFeedback.serverError(error.toString());
+          _status = 'حصل خطأ غير متوقع أثناء الاتصال '
+              '(${error.runtimeType}). جرب مرة تانية أو ابعت صورة الرسالة.';
         });
       }
     } finally {
@@ -275,6 +276,30 @@ class _SignInPageState extends State<_SignInPage> {
                 const SizedBox(height: 8),
                 const Text('سجّل دخولك علشان تحافظ على حسابك.',
                     textAlign: TextAlign.center),
+                if (_status.isNotEmpty)
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      key: const Key('auth-status'),
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _statusIsError
+                            ? Theme.of(context).colorScheme.errorContainer
+                            : Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _status,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _statusIsError
+                              ? Theme.of(context).colorScheme.onErrorContainer
+                              : Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 30),
                 TextField(
                   key: const Key('auth-email'),
@@ -311,30 +336,6 @@ class _SignInPageState extends State<_SignInPage> {
                   style: TextStyle(fontSize: 12, color: Colors.white70),
                 ),
                 if (_busy) const LinearProgressIndicator(),
-                if (_status.isNotEmpty)
-                  Semantics(
-                    liveRegion: true,
-                    child: Container(
-                      key: const Key('auth-status'),
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: _statusIsError
-                            ? Theme.of(context).colorScheme.errorContainer
-                            : Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _status,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _statusIsError
-                              ? Theme.of(context).colorScheme.onErrorContainer
-                              : Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
