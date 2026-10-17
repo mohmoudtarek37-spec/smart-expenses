@@ -13,6 +13,11 @@ class FinanceEntry {
     this.excluded = false,
     this.linkedInstallment = '',
     this.installmentCreated = false,
+    this.originalMessage = '',
+    this.receiptDataUrl = '',
+    this.sender = '',
+    this.fingerprint = '',
+    this.createdAt = '',
   }) : assert(amount >= 0);
 
   final String id;
@@ -25,12 +30,23 @@ class FinanceEntry {
   final bool excluded;
   final String linkedInstallment;
   final bool installmentCreated;
+  /// Legacy backup details must be kept even while their editor is unfinished.
+  final String originalMessage;
+  final String receiptDataUrl;
+  final String sender;
+  final String fingerprint;
+  final String createdAt;
 
   FinanceEntry copyWith({String? linkedInstallment, bool? installmentCreated}) => FinanceEntry(
     id: id, type: type, amount: amount, date: date, category: category,
     source: source, note: note, excluded: excluded,
     linkedInstallment: linkedInstallment ?? this.linkedInstallment,
     installmentCreated: installmentCreated ?? this.installmentCreated,
+    originalMessage: originalMessage,
+    receiptDataUrl: receiptDataUrl,
+    sender: sender,
+    fingerprint: fingerprint,
+    createdAt: createdAt,
   );
 
   String get title => note.trim().isNotEmpty
@@ -56,6 +72,11 @@ class FinanceEntry {
       'excluded': excluded,
       'linkedInstallment': linkedInstallment,
       'installmentCreated': installmentCreated,
+      'originalMessage': originalMessage,
+      'receiptDataUrl': receiptDataUrl,
+      'sender': sender,
+      'fingerprint': fingerprint,
+      'createdAt': createdAt,
     };
   }
 
@@ -94,6 +115,12 @@ class FinanceEntry {
     if (value['excluded'] != null && value['excluded'] is! bool) {
       throw const FormatException('Invalid exclusion flag');
     }
+    final receiptDataUrl = readText('receiptDataUrl');
+    if (receiptDataUrl.isNotEmpty &&
+        !RegExp(r'^data:image/(?:png|jpeg|webp);base64,', caseSensitive: false)
+            .hasMatch(receiptDataUrl)) {
+      throw const FormatException('Unsupported receipt image data');
+    }
     return FinanceEntry(
       id: id,
       type: type == 'deposit' ? EntryType.deposit : EntryType.withdrawal,
@@ -105,6 +132,11 @@ class FinanceEntry {
       excluded: value['excluded'] == true,
       linkedInstallment: readText('linkedInstallment'),
       installmentCreated: value['installmentCreated'] == true,
+      originalMessage: readText('originalMessage'),
+      receiptDataUrl: readText('receiptDataUrl'),
+      sender: readText('sender'),
+      fingerprint: readText('fingerprint'),
+      createdAt: readText('createdAt'),
     );
   }
 }
