@@ -95,7 +95,21 @@ class EncryptedTransactionStore implements LedgerStore {
       }
     }
     _validateLinks(entries, installments);
-    return InstallmentLedger(entries: entries, installments: installments);
+    final categories = decoded['customCategories'] ?? [];
+    final prefs = decoded['prefs'] ?? <String, dynamic>{};
+    final createdAt = decoded['createdAt'] ?? '';
+    if (categories is! List ||
+        categories.any((value) => value is! String) ||
+        prefs is! Map<String, dynamic> ||
+        createdAt is! String) {
+      throw const FormatException('Invalid saved user preferences');
+    }
+    return InstallmentLedger(
+      entries: entries, installments: installments,
+      customCategories: List<String>.from(categories),
+      prefs: Map<String, dynamic>.from(prefs),
+      createdAt: createdAt,
+    );
   }
 
   static void _validateLinks(
@@ -123,7 +137,7 @@ class EncryptedTransactionStore implements LedgerStore {
   @override
   Future<void> save(List<FinanceEntry> entries) async {
     final existing = await loadLedger();
-    await saveLedger(InstallmentLedger(
+    await saveLedger(existing.withCollections(
       entries: entries,
       installments: existing.installments,
     ));
@@ -150,6 +164,9 @@ class EncryptedTransactionStore implements LedgerStore {
       'schemaVersion': 2,
       'entries': ledger.entries.map((e) => e.toJson()).toList(),
       'installments': ledger.installments.map((p) => p.toJson()).toList(),
+      'customCategories': ledger.customCategories,
+      'prefs': ledger.prefs,
+      'createdAt': ledger.createdAt,
     });
     await _storage.write(_key, data);
   }
