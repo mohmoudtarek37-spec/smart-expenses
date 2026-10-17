@@ -2,20 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/finance_models.dart';
+import '../finance/transaction_store.dart';
+import 'transaction_editor.dart';
 
 /// Flutter reimplementation of the HTML v1.5 home/navigation structure.
-/// Financial records are supplied by the caller; this preview NEVER fabricates
-/// or saves user data. A reviewed data repository will be connected separately.
+/// Supports an opt-in, account-isolated preview transaction store. No cloud sync yet.
 class FinanceShell extends StatefulWidget {
   const FinanceShell({
     super.key,
     this.entries = const [],
+    this.store,
     this.isDark = false,
     this.onToggleTheme,
     this.onSignOut,
   });
 
   final List<FinanceEntry> entries;
+  final TransactionStore? store;
   final bool isDark;
   final VoidCallback? onToggleTheme;
   final VoidCallback? onSignOut;
@@ -35,6 +38,10 @@ class _FinanceShellState extends State<FinanceShell> {
   final _formatter = NumberFormat.decimalPattern('en');
   final _search = TextEditingController();
   late DateTime _month;
+  late List<FinanceEntry> _entries;
+  bool _loading = false;
+  bool _saving = false;
+  String? _loadError;
   int _selected = 0;
   _Filter _filter = _Filter.all;
 
@@ -44,6 +51,11 @@ class _FinanceShellState extends State<FinanceShell> {
     final today = DateTime.now();
     _month = DateTime(today.year, today.month, 1);
     _formatter.maximumFractionDigits = 2;
+    _entries = List.of(widget.entries);
+    if (widget.store != null) {
+      _loading = true;
+      _loadSavedTransactions();
+    }
   }
 
   @override
@@ -75,7 +87,77 @@ class _FinanceShellState extends State<FinanceShell> {
   String _money(num value) => _formatter.format(value);
   String _currency(num value) => '${_money(value)} ج.م';
 
-  FinanceSummary get _summary => FinanceSummary(widget.entries);
+  FinanceSummary get _summary => FinanceSummary(_entries);
+
+  bool get _editable =>
+      widget.store != null && !_loading && !_saving && _loadError == null;
+
+  Future<void> _loadSavedTransactions() async {
+    try {
+      final loaded = await widget.store!.load();
+      if (!mounted) return;
+      setState(() {
+        _entries = loaded;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'تعذر قراءة البيانات المحلية. لن نسمح بحفظ جديد قبل حل المشكلة.';
+      });
+    }
+  }
+
+  Future<void> _editTransaction({FinanceEntry? original}) async {
+    if (!_editable) {
+      _comingSoon('إضافة وتعديل المعاملات');
+      return;
+    }
+    final result = await showModalBottomSheet<TransactionEditResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => TransactionEditor(original: original),
+    );
+    if (result == null || !mounted || !_editable) return;
+    final next = List<FinanceEntry>.from(_entries);
+    if (result.action == TransactionEditAction.delete) {
+      if (original == null) return;
+      next.removeWhere((entry) => entry.id == original.id);
+    } else {
+      final entry = result.entry!;
+      if (original == null) {
+        next.add(entry);
+      } else {
+        final index = next.indexWhere((item) => item.id == original.id);
+        if (index < 0) return;
+        next[index] = entry;
+      }
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.store!.save(next);
+      if (!mounted) return;
+      setState(() {
+        _entries = next;
+        _saving = false;
+        if (result.entry != null) {
+          _month = DateTime(result.entry!.date.year, result.entry!.date.month);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تم حفظ التغيير على الجهاز فقط، بدون مزامنة سحابية.'),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('فشل حفظ التغيير. البيانات المعروضة لم تتغير.'),
+      ));
+    }
+  }
 
   void _goTo(int page, {_Filter filter = _Filter.all}) {
     setState(() {
@@ -290,7 +372,7 @@ class _FinanceShellState extends State<FinanceShell> {
     final icon = deposit ? Icons.south_west : Icons.north_east;
     final color = deposit ? _green : _red;
     return InkWell(
-      onTap: () => _comingSoon('تفاصيل المعاملة'),
+      onTap: () => _editTransaction(original: entry),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(children: [
@@ -425,7 +507,7 @@ class _FinanceShellState extends State<FinanceShell> {
           _action('تقرير PDF', Icons.download,
               () => _comingSoon('تقرير PDF')),
           _action('معاملة يدوية', Icons.add,
-              () => _comingSoon('إضافة المعاملات')),
+              () => _editTransaction()),
         ]),
         const SizedBox(height: 12),
         Wrap(spacing: 7, children: [
@@ -599,13 +681,30 @@ class _FinanceShellState extends State<FinanceShell> {
         ],
       ),
       body: SafeArea(
-        child: switch (_selected) {
-          0 => _home(),
-          1 => _transactions(),
-          2 => _installments(),
-          3 => _analytics(),
-          _ => _settings(),
-        },
+        child: Column(children: [
+          if (widget.store != null)
+            Container(
+              width: double.infinity,
+              color: widget.isDark
+                  ? const Color(0xFF3C331F)
+                  : const Color(0xFFFFF4D7),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              child: Text(
+                _loadError ?? 'نسخة تجريبية: المعاملات محفوظة على الجهاز فقط، '
+                    'بدون نسخ احتياطي أو مزامنة. لا تنقل إليها بياناتك المهمة بعد.',
+                style: TextStyle(fontSize: 11,
+                    color: widget.isDark ? Colors.white : Colors.black87),
+              ),
+            ),
+          if (_loading || _saving) const LinearProgressIndicator(),
+          Expanded(child: switch (_selected) {
+            0 => _home(),
+            1 => _transactions(),
+            2 => _installments(),
+            3 => _analytics(),
+            _ => _settings(),
+          }),
+        ]),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -626,7 +725,7 @@ class _FinanceShellState extends State<FinanceShell> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         key: const Key('add-transaction'),
-        onPressed: () => _comingSoon('إضافة المعاملات'),
+        onPressed: () => _editTransaction(),
         backgroundColor: _accent,
         foregroundColor: const Color(0xFF222012),
         shape: RoundedRectangleBorder(
