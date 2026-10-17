@@ -44,8 +44,37 @@ class HesabatyApp extends StatefulWidget {
 
 class _HesabatyAppState extends State<HesabatyApp> {
   bool _isDark = false;
+  static const _themeKey = 'hesabaty_flutter_theme_dark';
 
-  void _toggleTheme() => setState(() => _isDark = !_isDark);
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    try {
+      final raw = await const DevicePrivateStorage().read(_themeKey);
+      if (mounted && raw != null) setState(() => _isDark = raw == 'true');
+    } catch (_) {
+      // Theme access is cosmetic; an unavailable private store never blocks UI.
+    }
+  }
+
+  void _toggleTheme() {
+    final next = !_isDark;
+    setState(() => _isDark = next);
+    unawaited(_saveTheme(next));
+  }
+
+  Future<void> _saveTheme(bool dark) async {
+    try {
+      await const DevicePrivateStorage()
+          .write(_themeKey, dark.toString());
+    } catch (_) {
+      // The next app launch will use its normal default if persistence fails.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
