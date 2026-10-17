@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -12,6 +13,7 @@ import '../finance/analytics_models.dart';
 import 'premium_page.dart';
 import '../finance/monthly_report.dart';
 import '../finance/installment_calendar.dart';
+import '../finance/due_notices.dart';
 import '../finance/sms_import.dart';
 import 'sms_import_review.dart';
 import 'package:printing/printing.dart';
@@ -780,6 +782,48 @@ class _FinanceShellState extends State<FinanceShell> {
         label: Text(label, style: const TextStyle(fontSize: 12)),
       );
 
+  Widget _dueNoticesPanel() {
+    final notices = InstallmentDueNotices.upcoming(_plans, DateTime.now());
+    if (notices.isEmpty) return const SizedBox.shrink();
+    final overdue = notices.where((n) => n.daysLeft < 0).length;
+    final today = notices.where((n) => n.daysLeft == 0).length;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: _panel(child: Column(
+        key: const Key('installment-due-alerts'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Icon(Icons.notifications_active_outlined,
+                color: overdue > 0 ? _red : _accent),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              overdue > 0 ? 'عندك ' + overdue.toString() + ' قسط متأخر'
+                  : today > 0 ? 'عندك ' + today.toString() + ' قسط النهارده'
+                  : 'أقساط مستحقة قريبًا',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            )),
+            TextButton(
+              onPressed: () => _goTo(2),
+              child: const Text('عرض الأقساط')),
+          ]),
+          for (final n in notices.take(3))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(n.plan.name + ': ' + _currency(n.plan.amount) +
+                  ' · ' + (n.daysLeft < 0 ? 'متأخر' :
+                      n.daysLeft == 0 ? 'النهارده' :
+                      'بعد ' + n.daysLeft.toString() + ' يوم'),
+                style: TextStyle(color: _mutedText, fontSize: 12)),
+            ),
+          if (notices.length > 3)
+            Text('وفيه ' + (notices.length - 3).toString() + ' قسط إضافي',
+              style: TextStyle(color: _mutedText, fontSize: 12)),
+        ],
+      )),
+    );
+  }
+
   Widget _home() {
     final totals = _summary.totals(_month);
     final categories = _summary.categoryTotals(_month);
@@ -789,6 +833,7 @@ class _FinanceShellState extends State<FinanceShell> {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
         _hero(totals),
+        _dueNoticesPanel(),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _smallMetric(key: const Key('withdrawal-card'), title: 'السحب',
@@ -918,8 +963,9 @@ class _FinanceShellState extends State<FinanceShell> {
         _panel(
           background: _alt,
           child: const Text(
-            '🔔 الاستحقاقات بتظهر عند فتح التطبيق. التنبيهات وقت إغلاقه '
-            'وتصدير المواعيد للتقويم لسه قيد التطوير.',
+            '🔔 بنعرض الأقساط المستحقة عند فتح حساباتي. '
+            'صدّر مواعيد الأقساط للتقويم وفعّل تنبيهاته '
+            'علشان توصلك حتى لو حساباتي مقفول.',
             style: TextStyle(fontSize: 12, height: 1.6),
           ),
         ),
