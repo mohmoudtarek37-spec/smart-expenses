@@ -87,6 +87,8 @@ void main() {
     expect(find.text('test@example.com'), findsOneWidget);
     expect(find.byKey(const Key('login-from-settings')), findsNothing);
     expect(find.text('تسجيل الخروج'), findsOneWidget);
+    expect(find.byKey(const Key('request-account-deletion')), findsOneWidget);
+    expect(find.byKey(const Key('privacy-policy-link')), findsOneWidget);
   });
 
   testWidgets('analytics shows 6-month bars, category and monthly comparison',

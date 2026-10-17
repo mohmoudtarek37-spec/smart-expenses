@@ -18,6 +18,7 @@ import '../finance/due_notices.dart';
 import '../finance/sms_import.dart';
 import 'sms_import_review.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../finance/cloud_sync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../finance/finance_models.dart';
@@ -1804,6 +1805,49 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     }
   }
 
+  static const _websiteHost = 'mohmoudtarek37-spec.github.io';
+
+  Future<void> _openLegalResource(String page) async {
+    final url = Uri.https(_websiteHost, '/smart-expenses/' + page);
+    try {
+      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!opened) throw const FormatException('Could not open legal URL');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('تعذر فتح الصفحة. تقدر تزور ' + url.toString() +
+            ' من أي متصفح.'),
+        duration: const Duration(seconds: 10),
+      ));
+    }
+  }
+
+  Future<void> _requestAccountDeletion() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('طلب حذف حساب حساباتي وبياناته'),
+        content: const Text(
+          'هنفتح صفحة مخصصة لطلب حذف حسابك والبيانات المرتبطة بيه. '
+          'الطلب مش هيحذف الحساب فورًا، وممكن تحتاج تأكيد ملكيته. '
+          'احتفظ بنسخة احتياطية لو عندك معاملات عايز تحتفظ بيها. '
+          'لو عندك اشتراك Premium، راجع اشتراكات Google Play بشكل منفصل.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('رجوع')),
+          FilledButton(
+            key: const Key('confirm-deletion-request'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('فتح صفحة طلب الحذف')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _openLegalResource('delete-account.html');
+    }
+  }
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
@@ -1997,6 +2041,25 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           ),
         ],
       )),
+      const SizedBox(height: 16),
+      _panel(child: Column(children: [
+        ListTile(
+          key: const Key('privacy-policy-link'),
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('سياسة الخصوصية'),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => _openLegalResource('privacy-policy.html'),
+        ),
+        if (widget.cloudEnabled)
+          ListTile(
+            key: const Key('request-account-deletion'),
+            leading: const Icon(Icons.person_remove_outlined),
+            title: const Text('طلب حذف حسابي والبيانات المرتبطة بيه'),
+            subtitle: const Text('طلب آمن، مع التحقق من ملكية الحساب'),
+            trailing: const Icon(Icons.open_in_new),
+            onTap: _requestAccountDeletion,
+          ),
+      ])),
       const SizedBox(height: 16),
       Text('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.',
           style: TextStyle(color: _mutedText, fontSize: 12)),
