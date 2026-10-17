@@ -849,6 +849,7 @@ class _FinanceShellState extends State<FinanceShell> {
     );
     final comparison = analysis.comparison;
     final totals = analysis.current;
+    final categories = analysis.categories;
     return ListView(
       key: const Key('analytics-page'),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -895,29 +896,30 @@ class _FinanceShellState extends State<FinanceShell> {
           ],
         )),
         _sectionTitle('توزيع المصروفات'),
-        if (analysis.categories.isEmpty)
+        if (categories.isEmpty)
           _empty('مفيش مصروفات للتحليل في الشهر ده',
               Icons.trending_down_outlined)
         else
           _panel(child: Column(
             children: [
-              for (final category in analysis.categories) ...[
+              for (var i = 0; i < categories.length; i++) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Column(children: [
                     Row(children: [
-                      Expanded(child: Text(category.key,
+                      Expanded(child: Text(categories[i].key,
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w700))),
-                      Text(_currency(category.value),
+                      Text(_currency(categories[i].value),
                           style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w700)),
                     ]),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      key: ValueKey('expense-category-${category.key}'),
+                      key: ValueKey('expense-category-${categories[i].key}'),
                       value: totals.withdrawal > 0
-                          ? (category.value / totals.withdrawal).clamp(0, 1)
+                          ? (categories[i].value / totals.withdrawal)
+                              .clamp(0, 1)
                           : 0,
                       minHeight: 7,
                       backgroundColor: _alt,
@@ -926,7 +928,7 @@ class _FinanceShellState extends State<FinanceShell> {
                     ),
                   ]),
                 ),
-                if (category != analysis.categories.last)
+                if (i != categories.length - 1)
                   Divider(height: 1, color: _line),
               ],
             ],
