@@ -140,8 +140,11 @@ class InstallmentPlan {
     final paidMonths = <String>{};
     for (final payment in payments) {
       final month = encodeMonth(payment.month);
+      final offset = (payment.month.year - startMonth.year) * 12 +
+          payment.month.month - startMonth.month;
+      // An inactive plan can still contain past legitimate payments.
       if (!paidMonths.add(month) || payment.transactionId.isEmpty ||
-          !appliesTo(payment.month)) {
+          offset < 0 || (count > 0 && offset >= count)) {
         throw const FormatException('Invalid or duplicate payment month');
       }
     }
