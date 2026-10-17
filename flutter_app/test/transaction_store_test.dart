@@ -34,7 +34,7 @@ void main() {
     expect(entry.source, 'CIB');
     expect(entry.note, 'الغداء');
     expect(entry.excluded, isTrue);
-    expect(storage.data.values.single, contains('"schemaVersion":1'));
+    expect(storage.data.values.single, contains('"schemaVersion":2'));
   });
 
   test('guest and account data never share a storage namespace', () async {
