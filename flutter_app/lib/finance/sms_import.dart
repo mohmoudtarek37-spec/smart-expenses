@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
+// The normalized date and SMS fingerprint are concatenated deterministically.
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -92,9 +94,11 @@ class SmsImportParser {
             .replaceAll(',', '').replaceAll(' ', '');
         final possible = double.tryParse(raw);
         if (possible == null || !possible.isFinite || possible <= 0 ||
-            possible >= 1e12) continue;
+            possible >= 1e12) {
+          continue;
+        }
         final prefix = content.substring(
-            match.start > 35 ? match.start - 35 : 0, match.start);
+            match.start > 23 ? match.start - 23 : 0, match.start);
         if (RegExp(r'balance|الرصيد|المتاح|available').hasMatch(prefix)) continue;
         amount = possible;
         break;

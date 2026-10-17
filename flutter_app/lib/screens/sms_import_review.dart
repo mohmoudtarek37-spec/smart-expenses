@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
+// Review labels combine localized status, amount and full SMS preview text.
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -23,7 +25,9 @@ class _SmsImportReviewState extends State<SmsImportReview> {
   bool _eligible(int index) {
     final record = widget.records[index];
     if (!record.valid ||
-        SmsImportParser.alreadyImported(record, widget.existing)) return false;
+        SmsImportParser.alreadyImported(record, widget.existing)) {
+      return false;
+    }
     for (var i = 0; i < index; i++) {
       if (widget.records[i].fingerprint == record.fingerprint) return false;
     }
