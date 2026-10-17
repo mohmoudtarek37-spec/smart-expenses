@@ -1493,16 +1493,19 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       context: context,
       builder: (context) => AlertDialog(
         title: Text(_lang('تصدير نسخة احتياطية', 'Export backup')),
-        content: const Text(
+        content: Text(_lang(
           'ملف JSON غير مشفّر، وهيحتوي على أرقامك ورسائل البنك '
           'وصور الإيصالات لو موجودة. احفظه في مكان خاص وآمن '
           'وما تشاركوش مع أي حد.',
-        ),
+          'The exported JSON file is NOT encrypted. It can contain your '
+          'financial transactions, imported SMS data and receipt photos. '
+          'Save it in a private, secure place and do not share it.',
+        )),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء')),
+              child: Text(_lang('إلغاء', 'Cancel'))),
           FilledButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('اختيار مكان الحفظ')),
+              child: Text(_lang('اختيار مكان الحفظ', 'Choose save location'))),
         ],
       ),
     );
@@ -1522,14 +1525,20 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         fileNameOverrides: [filename],
       ));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('اختار من قائمة المشاركة مكان حفظ ملف JSON. '
-            'احتفظ بالملف في مكان آمن.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_lang(
+          'اختار من قائمة المشاركة مكان حفظ ملف JSON. '
+          'احتفظ بالملف في مكان آمن.',
+          'Use the share menu to save your JSON file to a secure location.',
+        )),
       ));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تعذر تصدير النسخة الاحتياطية. راجع مساحة التخزين.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_lang(
+          'تعذر تصدير النسخة الاحتياطية. راجع مساحة التخزين.',
+          'Could not export backup. Check available device storage.',
+        )),
       ));
     }
   }
@@ -1553,9 +1562,9 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('مراجعة النسخة المستوردة'),
+          title: Text(_lang('مراجعة النسخة المستوردة', 'Review imported backup')),
           content: SingleChildScrollView(
-            child: Text(
+            child: Text(_lang(
               'إصدار الملف: ${preview.sourceVersion}\n'
               'معاملات الملف: ${preview.transactionCount}\n'
               'أقساط الملف: ${preview.installmentCount}\n'
@@ -1566,15 +1575,26 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
               'الاستيراد هيستبدل بيانات النسخة الحالية بالكامل. '
               'لو البيانات القديمة موجودة على جهاز تاني أو نسخة HTML '
               'مش هنلمسها. من الأفضل تصدير نسخة من البيانات الحالية الأول.',
-            ),
+              'Backup version: ${preview.sourceVersion}\n'
+              'Transactions: ${preview.transactionCount}\n'
+              'Installments: ${preview.installmentCount}\n'
+              'Imported SMS records: ${preview.smsCount}\n'
+              'Receipts: ${preview.receiptCount}\n\n'
+              'Current data: ${_entries.length} transactions and '
+              '${_plans.length} installments.\n\n'
+              'Importing will REPLACE all financial data in this account '
+              'on this phone. Export a backup of your current data first. '
+              'Data on your other devices or old HTML installation '
+              'will not be changed by this action.',
+            )),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false),
-                child: const Text('إلغاء')),
+                child: Text(_lang('إلغاء', 'Cancel'))),
             FilledButton(
               key: const Key('confirm-backup-import'),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('أؤكد الاستبدال'),
+              child: Text(_lang('أؤكد الاستبدال', 'Confirm replacement')),
             ),
           ],
         ),
@@ -1598,27 +1618,39 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           _month = DateTime(DateTime.now().year, DateTime.now().month);
           _saving = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('تم استيراد البيانات على هذا الجهاز فقط. '
-              'المزامنة السحابية لسه قيد التطوير.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_lang(
+            'تم استيراد البيانات على هذا الجهاز فقط. '
+            'راجع حالة المزامنة السحابية من الإعدادات.',
+            'Backup imported locally on this phone. '
+            'Review cloud synchronization in Settings.',
+          )),
         ));
       } catch (_) {
         if (!mounted) return;
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('فشل الاستيراد. البيانات المحلية القديمة لم تتغير.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_lang(
+            'فشل الاستيراد. راجع البيانات الحالية قبل أي محاولة جديدة.',
+            'Import failed. Review your current data before trying again.',
+          )),
         ));
       }
     } on FormatException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('الملف غير صالح أو فيه بيانات غير مدعومة: '
-            '${error.message}'),
+        content: Text(_lang(
+          'الملف غير صالح أو فيه بيانات غير مدعومة: ',
+          'Invalid or unsupported backup data: ',
+        ) + '${error.message}'),
       ));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تعذر فتح الملف أو استيراده. بياناتك لم تتغير.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_lang(
+          'تعذر فتح الملف أو استيراده. راجع بياناتك الحالية.',
+          'Could not open or import the file. Review your current data.',
+        )),
       ));
     }
   }
