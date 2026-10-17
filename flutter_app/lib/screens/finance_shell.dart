@@ -432,7 +432,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     setState(() => _reportBusy = true);
     try {
       final report = MonthlyReportData(month: _month, allEntries: _entries);
-      final bytes = await MonthlyReportPdf.create(report);
+      final bytes = await MonthlyReportPdf.create(report,
+          isEnglish: widget.isEnglish);
       if (!mounted) return;
       await Printing.sharePdf(bytes: bytes, filename: report.filename);
     } catch (_) {

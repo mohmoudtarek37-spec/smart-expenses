@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show NumberFormat;
+import 'package:intl/intl.dart' show NumberFormat, DateFormat;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -35,14 +35,25 @@ class MonthlyReportData {
 /// Builds A4 reports *offline*. Flutter paints each page so Arabic letter
 /// shaping relies on the device's native text renderer, not missing PDF fonts.
 /// Like the legacy HTML report, the PDF pages are image-backed (not searchable).
+class MonthlyReportCopy {
+  static String title(bool english) =>
+      english ? 'Monthly transaction report' : 'تقرير المعاملات الشهري';
+
+  static String entryType(bool english, EntryType type) =>
+      type == EntryType.deposit
+          ? (english ? 'Income' : 'إيداع')
+          : (english ? 'Expense' : 'سحب');
+}
+
 class MonthlyReportPdf {
   static const int _width = 1120;
   static const int _height = 1584;
 
-  static Future<Uint8List> create(MonthlyReportData report) async {
+  static Future<Uint8List> create(MonthlyReportData report,
+      {bool isEnglish = false}) async {
     final document = pw.Document(compress: true);
     for (var page = 0; page < report.pageCount; page++) {
-      final png = await _paintPage(report, page);
+      final png = await _paintPage(report, page, isEnglish: isEnglish);
       final image = pw.MemoryImage(png);
       document.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -53,7 +64,9 @@ class MonthlyReportPdf {
     return document.save();
   }
 
-  static Future<Uint8List> _paintPage(MonthlyReportData report, int page) async {
+  static Future<Uint8List> _paintPage(MonthlyReportData report, int page,
+      {required bool isEnglish}) async {
+    String tr(String ar, String en) => isEnglish ? en : ar;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     void rectangle(double x, double y, double w, double h, Color color) {
@@ -70,8 +83,9 @@ class MonthlyReportPdf {
       double size = 23,
       bool bold = false,
       Color color = const Color(0xFF172334),
-      bool right = true,
+      bool? right,
     }) {
+      final alignRight = right ?? !isEnglish;
       final painter = TextPainter(
         text: TextSpan(
           text: value,
@@ -82,8 +96,8 @@ class MonthlyReportPdf {
             height: 1.2,
           ),
         ),
-        textDirection: right ? TextDirection.rtl : TextDirection.ltr,
-        textAlign: right ? TextAlign.right : TextAlign.left,
+        textDirection: alignRight ? TextDirection.rtl : TextDirection.ltr,
+        textAlign: alignRight ? TextAlign.right : TextAlign.left,
         maxLines: 1,
         ellipsis: '…',
       )..layout(maxWidth: width);
@@ -101,22 +115,28 @@ class MonthlyReportPdf {
     rectangle(0, 0, _width.toDouble(), _height.toDouble(), Colors.white);
     rectangle(0, 0, _width.toDouble(), 270, const Color(0xFFFAFBFE));
     rectangle(65, 269, 990, 2, const Color(0xFFD9E0E9));
-    text('تقرير المعاملات الشهري', 65, 66, 990, size: 43, bold: true, color: dark);
-    text(monthTitle(report.month), 65, 137, 990, size: 31, bold: true);
-    text('حساباتي | تقرير محفوظ على جهازك', 65, 203, 990, size: 20, color: muted);
-    text('صفحة ${page + 1} / ${report.pageCount}', 65, 204, 310,
-        size: 18, right: false, color: muted);
+    text(MonthlyReportCopy.title(isEnglish), 65, 66, 990,
+        size: 43, bold: true, color: dark);
+    text(isEnglish ? DateFormat('MMMM yyyy', 'en').format(report.month)
+        : monthTitle(report.month), 65, 137, 990, size: 31, bold: true);
+    text(tr('حساباتي | تقرير محفوظ على جهازك',
+        'Hesabaty | Offline monthly report'),
+        65, 203, 990, size: 20, color: muted);
+    text(isEnglish
+        ? 'Page ${page + 1} of ${report.pageCount}'
+        : 'صفحة ${page + 1} / ${report.pageCount}',
+        65, 204, 310, size: 18, right: false, color: muted);
 
     rectangle(65, 294, 990, 62, const Color(0xFFEDF1F6));
-    text('التاريخ', 850, 309, 185, bold: true);
-    text('النوع', 670, 309, 140, bold: true);
-    text('المكان أو الوصف', 306, 309, 315, bold: true);
-    text('المبلغ (جنيه)', 70, 309, 205, bold: true);
+    text(tr('التاريخ', 'Date'), 850, 309, 185, bold: true);
+    text(tr('النوع', 'Type'), 670, 309, 140, bold: true);
+    text(tr('المكان أو الوصف', 'Description'), 306, 309, 315, bold: true);
+    text(tr('المبلغ (جنيه)', 'Amount (EGP)'), 70, 309, 205, bold: true);
 
     final start = page * MonthlyReportData.rowsPerPage;
     final end = math.min(report.entries.length, start + MonthlyReportData.rowsPerPage);
     if (start == end) {
-      text('لا توجد معاملات مسجلة لهذا الشهر', 65, 421, 990,
+      text(tr('لا توجد معاملات مسجلة لهذا الشهر', 'No transactions recorded this month'), 65, 421, 990,
           size: 29, color: muted);
     }
     for (var i = start; i < end; i++) {
@@ -128,25 +148,29 @@ class MonthlyReportPdf {
       }
       final deposit = entry.type == EntryType.deposit;
       final description = entry.title +
-          (entry.excluded ? ' (مستبعدة)' : '');
-      text(formattedDate(entry.date), 850, y, 185, size: 21);
-      text(deposit ? 'إيداع' : 'سحب', 670, y, 140,
+          (entry.excluded ? tr(' (مستبعدة)', ' (excluded)') : '');
+      text(isEnglish ? DateFormat('d MMM yyyy', 'en').format(entry.date)
+          : formattedDate(entry.date), 850, y, 185, size: 21);
+      text(MonthlyReportCopy.entryType(isEnglish, entry.type), 670, y, 140,
           size: 21, bold: true, color: deposit ? green : red);
-      text(description, 306, y, 315, size: 20, color: dark);
+      text(description, 306, y, 315, size: 20, color: dark,
+          right: RegExp(r'[\u0600-\u06FF]').hasMatch(description));
       text((deposit ? '+' : '−') + amount(entry.amount), 70, y, 205,
           size: 21, right: false, bold: true, color: deposit ? green : red);
     }
 
     if (page == report.pageCount - 1) {
       rectangle(65, 1414, 990, 124, const Color(0xFFEDF1F6));
-      text('إجمالي الإيداعات  ${amount(report.totals.deposit)}', 580, 1435,
+      text('${tr('إجمالي الإيداعات', 'Total income')}  ${amount(report.totals.deposit)}', 580, 1435,
           450, size: 23, bold: true, color: green);
-      text('إجمالي السحب  ${amount(report.totals.withdrawal)}', 580, 1485,
+      text('${tr('إجمالي السحب', 'Total expenses')}  ${amount(report.totals.withdrawal)}', 580, 1485,
           450, size: 23, bold: true, color: red);
-      text('المتبقي  ${amount(report.totals.remaining)}', 75, 1460,
+      text('${tr('المتبقي', 'Balance')}  ${amount(report.totals.remaining)}', 75, 1460,
           465, size: 24, bold: true, right: false, color: dark);
     }
-    text('أُعد محليًا | عدد العمليات: ${report.entries.length}',
+    text(isEnglish
+        ? 'Prepared offline | Transactions: ${report.entries.length}'
+        : 'أُعد محليًا | عدد العمليات: ${report.entries.length}',
         65, 1553, 990, size: 18, color: muted);
 
     final picture = recorder.endRecording();
