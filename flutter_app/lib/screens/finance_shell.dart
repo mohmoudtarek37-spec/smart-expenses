@@ -1048,8 +1048,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     label: Text(label),
     selected: _filter == filter,
     selectedColor: widget.isDark
-        ? const Color(0xFF514820)
-        : const Color(0xFFFFF5C7),
+        ? const Color(0xFF214B70)
+        : const Color(0xFFDCECF9),
     onSelected: (_) => setState(() => _filter = filter),
     shape: StadiumBorder(side: BorderSide(color: _line)),
   );
