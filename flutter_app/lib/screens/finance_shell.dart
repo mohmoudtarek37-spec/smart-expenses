@@ -36,7 +36,9 @@ class FinanceShell extends StatefulWidget {
     this.guestStore,
     this.cloudEnabled = false,
     this.isDark = false,
+    this.isEnglish = false,
     this.onToggleTheme,
+    this.onToggleLanguage,
     this.onSignOut,
     this.onOpenAuth,
     this.accountEmail,
@@ -47,7 +49,9 @@ class FinanceShell extends StatefulWidget {
   final TransactionStore? guestStore;
   final bool cloudEnabled;
   final bool isDark;
+  final bool isEnglish;
   final VoidCallback? onToggleTheme;
+  final VoidCallback? onToggleLanguage;
   final VoidCallback? onSignOut;
   final VoidCallback? onOpenAuth;
   final String? accountEmail;
@@ -120,6 +124,9 @@ class _FinanceShellState extends State<FinanceShell> {
   Color get _alt => widget.isDark
       ? const Color(0xFF262833)
       : const Color(0xFFF5F7FA);
+
+  String _lang(String arabic, String english) =>
+      widget.isEnglish ? english : arabic;
 
   String _money(num value) => _formatter.format(value);
   String _currency(num value) => '${_money(value)} ج.م';
@@ -890,9 +897,9 @@ class _FinanceShellState extends State<FinanceShell> {
       key: const Key('transactions-page'),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
-        const Text('المعاملات', style: TextStyle(
+        Text(_lang('المعاملات', 'Transactions'), style: const TextStyle(
             fontSize: 23, fontWeight: FontWeight.w800)),
-        Text('تفاصيل كل سحب وإيداع، ومعاه إثبات العملية',
+        Text(_lang('تفاصيل كل سحب وإيداع، ومعاه إثبات العملية', 'All income and expense transactions'),
             style: TextStyle(fontSize: 12, color: _mutedText)),
         _monthPicker(),
         Wrap(spacing: 8, children: [
@@ -943,9 +950,9 @@ class _FinanceShellState extends State<FinanceShell> {
       key: const Key('installments-page'),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
-        const Text('الأقساط', style: TextStyle(fontSize: 23,
+        Text(_lang('الأقساط', 'Installments'), style: const TextStyle(fontSize: 23,
             fontWeight: FontWeight.w800)),
-        Text('مواعيد دفع الأقساط الشهرية، وتسجل السحب وقت الدفع فقط',
+        Text(_lang('مواعيد دفع الأقساط الشهرية، وتسجل السحب وقت الدفع فقط', 'Installment schedules and recorded payments'),
             style: TextStyle(fontSize: 12, color: _mutedText)),
         _monthPicker(),
         Row(children: [
@@ -1773,7 +1780,7 @@ class _FinanceShellState extends State<FinanceShell> {
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
     children: [
-      const Text('الإعدادات', style: TextStyle(fontSize: 23,
+      Text(_lang('الإعدادات', 'Settings'), style: const TextStyle(fontSize: 23,
           fontWeight: FontWeight.w800)),
       const SizedBox(height: 14),
       _panel(child: Column(
@@ -1826,7 +1833,7 @@ class _FinanceShellState extends State<FinanceShell> {
           const Divider(),
           ListTile(
           leading: const Icon(Icons.dark_mode_outlined),
-          title: const Text('الوضع الداكن'),
+          title: Text(_lang('الوضع الداكن', 'Dark mode')),
           trailing: Switch(
             value: widget.isDark,
             onChanged: (_) => widget.onToggleTheme?.call(),
@@ -1836,15 +1843,15 @@ class _FinanceShellState extends State<FinanceShell> {
         Divider(color: _line),
         ListTile(
           leading: const Icon(Icons.language_outlined),
-          title: const Text('اللغة'),
-          subtitle: const Text('العربية — بننقل التبديل للإنجليزية'),
-          onTap: () => _comingSoon('اللغة الإنجليزية'),
+          title: Text(_lang('اللغة', 'Language')),
+          subtitle: Text(widget.isEnglish ? 'English (preview)' : 'العربية'),
+          onTap: widget.onToggleLanguage,
         ),
         if (widget.onSignOut != null) ...[
           Divider(color: _line),
           ListTile(
             leading: const Icon(Icons.logout),
-            title: const Text('تسجيل الخروج'),
+            title: Text(_lang('تسجيل الخروج', 'Sign out')),
             onTap: widget.onSignOut,
           ),
         ],
@@ -1994,9 +2001,9 @@ class _FinanceShellState extends State<FinanceShell> {
         titleSpacing: 18,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('أهلًا بيك 👋',
+            Text(_lang('أهلًا بيك 👋', 'Welcome 👋'),
                 style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
-            Text('فلوسك في مكان واحد',
+            Text(_lang('فلوسك في مكان واحد', 'Your money in one place'),
                 style: TextStyle(fontSize: 11, color: _mutedText)),
           ],
         ),
@@ -2008,14 +2015,14 @@ class _FinanceShellState extends State<FinanceShell> {
                 fontSize: 12, fontWeight: FontWeight.w800)),
           ),
           IconButton(
-            tooltip: 'تغيير المظهر',
+            tooltip: _lang('تغيير المظهر', 'Toggle theme'),
             onPressed: widget.onToggleTheme,
             icon: Icon(widget.isDark
                 ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
           ),
           IconButton(
             key: const Key('settings-action'),
-            tooltip: 'الإعدادات',
+            tooltip: _lang('الإعدادات', 'Settings'),
             onPressed: () => _goTo(4),
             icon: const Icon(Icons.settings_outlined),
           ),
@@ -2032,8 +2039,9 @@ class _FinanceShellState extends State<FinanceShell> {
                   : const Color(0xFFFFF4D7),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Text(
-                _loadError ?? 'نسخة تجريبية: المعاملات محفوظة على الجهاز فقط، '
-                    'بدون نسخ احتياطي أو مزامنة. لا تنقل إليها بياناتك المهمة بعد.',
+                _loadError ?? widget.cloudEnabled
+                    ? _lang('نسخة اختبار: الحفظ المحلي والمزامنة السحابية قيد التحقق. احتفظ بنسخة احتياطية.', 'Preview: cloud sync is not fully verified; keep a backup.')
+                    : _lang('نسخة تجريبية: معاملات الضيف محفوظة على هذا الجهاز فقط. احتفظ بنسخة احتياطية.', 'Preview: guest transactions are saved on this device only.'),
                 style: TextStyle(fontSize: 11,
                     color: widget.isDark ? Colors.white : Colors.black87),
               ),
@@ -2056,11 +2064,11 @@ class _FinanceShellState extends State<FinanceShell> {
             border: Border(top: BorderSide(color: _line)),
           ),
           child: Row(children: [
-            _tab('الرئيسية', Icons.home_outlined, 0),
-            _tab('المعاملات', Icons.receipt_long_outlined, 1),
+            _tab(_lang('الرئيسية', 'Home'), Icons.home_outlined, 0),
+            _tab(_lang('المعاملات', 'Transactions'), Icons.receipt_long_outlined, 1),
             const SizedBox(width: 64),
-            _tab('الأقساط', Icons.calendar_month_outlined, 2),
-            _tab('التحليلات', Icons.bar_chart_outlined, 3),
+            _tab(_lang('الأقساط', 'Installments'), Icons.calendar_month_outlined, 2),
+            _tab(_lang('التحليلات', 'Analytics'), Icons.bar_chart_outlined, 3),
           ]),
         ),
       ),
@@ -2072,7 +2080,7 @@ class _FinanceShellState extends State<FinanceShell> {
         foregroundColor: const Color(0xFF222012),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
-        tooltip: 'إضافة معاملة جديدة',
+        tooltip: _lang('إضافة معاملة جديدة', 'Add transaction'),
         child: const Icon(Icons.add, size: 30),
       ),
     );

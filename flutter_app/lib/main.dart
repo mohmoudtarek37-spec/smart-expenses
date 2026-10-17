@@ -45,12 +45,15 @@ class HesabatyApp extends StatefulWidget {
 
 class _HesabatyAppState extends State<HesabatyApp> {
   bool _isDark = false;
+  bool _isEnglish = false;
+  static const _languageKey = 'hesabaty_flutter_language';
   static const _themeKey = 'hesabaty_flutter_theme_dark';
 
   @override
   void initState() {
     super.initState();
     _loadTheme();
+    _loadLanguage();
   }
 
   Future<void> _loadTheme() async {
@@ -59,6 +62,32 @@ class _HesabatyAppState extends State<HesabatyApp> {
       if (mounted && raw != null) setState(() => _isDark = raw == 'true');
     } catch (_) {
       // Theme access is cosmetic; an unavailable private store never blocks UI.
+    }
+  }
+
+  Future<void> _loadLanguage() async {
+    try {
+      final locale = await const DevicePrivateStorage().read(_languageKey);
+      if (mounted && locale != null) {
+        setState(() => _isEnglish = locale == 'en');
+      }
+    } catch (_) {
+      // Settings are optional and must never block finance data.
+    }
+  }
+
+  void _toggleLanguage() {
+    final english = !_isEnglish;
+    setState(() => _isEnglish = english);
+    unawaited(_saveLanguage(english));
+  }
+
+  Future<void> _saveLanguage(bool english) async {
+    try {
+      await const DevicePrivateStorage()
+          .write(_languageKey, english ? 'en' : 'ar');
+    } catch (_) {
+      // The selected language remains active until next launch.
     }
   }
 
@@ -82,7 +111,7 @@ class _HesabatyAppState extends State<HesabatyApp> {
     return MaterialApp(
       title: 'حساباتي',
       debugShowCheckedModeBanner: false,
-      locale: const Locale('ar'),
+      locale: _isEnglish ? const Locale('en') : const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -109,18 +138,22 @@ class _HesabatyAppState extends State<HesabatyApp> {
       ),
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       home: Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: _isEnglish ? TextDirection.ltr : TextDirection.rtl,
         child: widget.backendConfigured
             ? _AuthGate(
                 guestStore: widget.guestStore,
                 isDark: _isDark,
+                isEnglish: _isEnglish,
                 onToggleTheme: _toggleTheme,
+                onToggleLanguage: _toggleLanguage,
               )
             : FinanceShell(
                 key: const ValueKey('guest-shell'),
                 store: widget.guestStore,
                 isDark: _isDark,
+                isEnglish: _isEnglish,
                 onToggleTheme: _toggleTheme,
+                onToggleLanguage: _toggleLanguage,
               ),
       ),
     );
@@ -132,12 +165,16 @@ class _HesabatyAppState extends State<HesabatyApp> {
 class _AuthGate extends StatefulWidget {
   const _AuthGate({
     required this.isDark,
+    required this.isEnglish,
     required this.onToggleTheme,
+    required this.onToggleLanguage,
     this.guestStore,
   });
 
   final bool isDark;
+  final bool isEnglish;
   final VoidCallback onToggleTheme;
+  final VoidCallback onToggleLanguage;
   final TransactionStore? guestStore;
 
   @override
@@ -174,7 +211,7 @@ class _AuthGateState extends State<_AuthGate> {
 
   Future<void> _showSignIn() async {
     await Navigator.of(context).push<void>(MaterialPageRoute<void>(
-      builder: (_) => const _SignInPage(),
+      builder: (_) => _SignInPage(isEnglish: widget.isEnglish),
     ));
   }
 
@@ -207,7 +244,7 @@ class _AuthGateState extends State<_AuthGate> {
     // Stable keys force FinanceShell to unload account-specific records and
     // reopen the correct encrypted store whenever the user changes.
     if (_requireAccount && !signedIn) {
-      return const _SignInPage(allowGuest: false);
+      return _SignInPage(allowGuest: false, isEnglish: widget.isEnglish);
     }
     return FinanceShell(
       key: ValueKey(signedIn ? 'user_${user.id}' : 'guest-shell'),
@@ -219,22 +256,27 @@ class _AuthGateState extends State<_AuthGate> {
       onOpenAuth: signedIn ? null : _showSignIn,
       accountEmail: signedIn ? user.email : null,
       isDark: widget.isDark,
+      isEnglish: widget.isEnglish,
       onToggleTheme: widget.onToggleTheme,
+      onToggleLanguage: widget.onToggleLanguage,
       onSignOut: signedIn ? _signOut : null,
     );
   }
 }
 
 class _SignInPage extends StatefulWidget {
-  const _SignInPage({this.allowGuest = true});
+  const _SignInPage({this.allowGuest = true, this.isEnglish = false});
 
   final bool allowGuest;
+  final bool isEnglish;
 
   @override
   State<_SignInPage> createState() => _SignInPageState();
 }
 
 class _SignInPageState extends State<_SignInPage> {
+  String _lang(String arabic, String english) =>
+      widget.isEnglish ? english : arabic;
   final _email = TextEditingController();
   final _password = TextEditingController();
   StreamSubscription<AuthState>? _loginSubscription;
@@ -535,7 +577,7 @@ class _SignInPageState extends State<_SignInPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الحساب والتسجيل'),
+        title: Text(_lang('الحساب والتسجيل', 'Account & Sign in')),
         leading: widget.allowGuest ? IconButton(
           key: const Key('close-auth'),
           tooltip: 'الرجوع للتطبيق',
@@ -558,8 +600,8 @@ class _SignInPageState extends State<_SignInPage> {
                     style: Theme.of(context).textTheme.headlineLarge),
                 const SizedBox(height: 8),
                 Text(widget.allowGuest
-                    ? 'التسجيل اختياري في نسخة المعاينة. بيانات الضيف على الجهاز.'
-                    : 'أنشئ حساب أو سجّل الدخول لاستخدام حساباتي وحفظ بياناتك بأمان.',
+                    ? _lang('التسجيل اختياري في نسخة المعاينة. بيانات الضيف على الجهاز.', 'Guest mode saves only on this device.')
+                    : _lang('أنشئ حساب أو سجّل الدخول لاستخدام حساباتي وحفظ بياناتك بأمان.', 'Sign in to connect your finances to your account.'),
                     textAlign: TextAlign.center),
                 if (_status.isNotEmpty)
                   Semantics(
@@ -591,8 +633,8 @@ class _SignInPageState extends State<_SignInPage> {
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(
-                      labelText: 'البريد الإلكتروني', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: _lang('البريد الإلكتروني', 'Email'), border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 14),
                 TextField(
@@ -601,42 +643,42 @@ class _SignInPageState extends State<_SignInPage> {
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
                   decoration: const InputDecoration(
-                      labelText: 'كلمة المرور', border: OutlineInputBorder()),
+                      labelText: _lang('كلمة المرور', 'Password'), border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: _busy ? null : () => _authenticate(register: false),
-                  child: const Text('تسجيل الدخول'),
+                  child: Text(_lang('تسجيل الدخول', 'Sign in')),
                 ),
                 OutlinedButton(
                   key: const Key('create-account'),
                   onPressed: _busy ? null : () => _authenticate(register: true),
-                  child: const Text('إنشاء حساب جديد'),
+                  child: Text(_lang('إنشاء حساب جديد', 'Create account')),
                 ),
                 OutlinedButton.icon(
                   key: const Key('auth-diagnostics'),
                   onPressed: _busy ? null : _checkAuthConnection,
                   icon: const Icon(Icons.wifi_find_outlined),
-                  label: const Text('فحص الاتصال وإعدادات التسجيل'),
+                  label: Text(_lang('فحص الاتصال وإعدادات التسجيل', 'Check server connection')),
                 ),
                 TextButton(
                   key: const Key('forgot-password'),
                   onPressed: _busy ? null : _recoverPassword,
-                  child: const Text('نسيت كلمة المرور؟'),
+                  child: Text(_lang('نسيت كلمة المرور؟', 'Forgot password?')),
                 ),
                 TextButton(
                   key: const Key('resend-confirmation'),
                   onPressed: _busy ? null : _resendConfirmation,
                   child: Text(_pendingConfirmation
-                      ? 'لم تصلك الرسالة؟ إعادة إرسال التأكيد'
-                      : 'عندي حساب ولم يصلني تأكيد البريد'),
+                      ? _lang('لم تصلك الرسالة؟ إعادة إرسال التأكيد', 'Resend confirmation email')
+                      : _lang('عندي حساب ولم يصلني تأكيد البريد', 'No confirmation email received')),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   key: const Key('google-sign-in'),
                   onPressed: _busy ? null : _googleSignIn,
                   icon: const Icon(Icons.account_circle_outlined),
-                  label: const Text('المتابعة باستخدام Google'),
+                  label: Text(_lang('المتابعة باستخدام Google', 'Continue with Google')),
                 ),
                 const Text(
                   'تسجيل Google يحتاج تفعيل مقدم الخدمة في Supabase. '
@@ -650,7 +692,7 @@ class _SignInPageState extends State<_SignInPage> {
                   key: const Key('continue-as-guest'),
                   onPressed: _busy ? null : () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back),
-                  label: const Text('الرجوع لحساباتي بدون تسجيل'),
+                  label: Text(_lang('الرجوع لحساباتي بدون تسجيل', 'Continue as guest')),
                 ),
               ],
             ),
