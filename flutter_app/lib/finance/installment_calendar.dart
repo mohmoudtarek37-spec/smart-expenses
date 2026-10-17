@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
 import 'installment_models.dart';
 
 /// Generates a local iCalendar file. The user chooses if and where to import.

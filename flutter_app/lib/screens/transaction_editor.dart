@@ -1,5 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -139,7 +139,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
         ));
         return;
       }
-      setState(() => _receiptDataUrl = 'data:' + mime! + ';base64,' + base64Encode(data));
+      setState(() => _receiptDataUrl = 'data:' + mime + ';base64,' + base64Encode(data));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -157,7 +157,8 @@ class _TransactionEditorState extends State<TransactionEditor> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Image.memory(bytes, height: 155, fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Text('تعذر عرض الصورة')),
+              errorBuilder: (context, error, stackTrace) =>
+                  const Text('تعذر عرض الصورة')),
         ),
       );
     } catch (_) {
