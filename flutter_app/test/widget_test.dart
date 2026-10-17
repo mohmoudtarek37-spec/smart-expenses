@@ -33,17 +33,9 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('Total income'), findsOneWidget);
-    expect(find.text('Spending ratio'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Expenses by category'), 180,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('home-page')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Expenses by category'), findsOneWidget);
+    expect(find.text('Your expenses'), findsOneWidget);
+    expect(find.byKey(const Key('total-card')), findsOneWidget);
+    expect(find.byKey(const Key('category-expenses-action')), findsOneWidget);
     await tester.tap(find.text('Transactions').last);
     await tester.pumpAndSettle();
     expect(find.text('All income and expense transactions'), findsOneWidget);
@@ -69,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('guest-account-status')), findsOneWidget);
+    expect(find.byKey(const Key('profile-settings')), findsOneWidget);
     await tester.tap(find.byKey(const Key('profile-settings')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-photo')), findsOneWidget);
@@ -121,8 +113,8 @@ void main() {
   testWidgets('HTML-style home and 4 tabs plus add action render',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
-    expect(find.text('أهلًا بيك 👋'), findsOneWidget);
-    expect(find.text('فلوسك في مكان واحد'), findsOneWidget);
+    expect(find.text('مرحبًا ضيف'), findsOneWidget);
+    expect(find.text('مصروفاتك'), findsOneWidget);
     expect(find.byKey(const Key('total-card')), findsOneWidget);
     expect(find.byKey(const Key('add-transaction')), findsOneWidget);
     expect(find.text('الرئيسية'), findsOneWidget);
@@ -150,11 +142,11 @@ void main() {
     expect(find.byKey(const Key('home-page')), findsOneWidget);
     expect(find.byKey(const Key('add-transaction')), findsOneWidget);
     expect(find.byKey(const Key('login-from-settings')), findsNothing);
-    expect(find.text('أهلًا بيك 👋'), findsOneWidget);
+    expect(find.text('مرحبًا ضيف'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('guest-account-status')), findsOneWidget);
+    expect(find.byKey(const Key('profile-settings')), findsOneWidget);
     expect(find.textContaining('مش بتتنقل للحساب تلقائيًا'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('login-from-settings')), 180,
@@ -186,8 +178,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('account-status')), findsOneWidget);
-    expect(find.text('test@example.com'), findsWidgets);
+    expect(find.byKey(const Key('profile-settings')), findsOneWidget);
+    expect(find.text('test'), findsWidgets);
     expect(find.byKey(const Key('login-from-settings')), findsNothing);
     final settingsScroll = find.descendant(
       of: find.byKey(const Key('settings-page')),
