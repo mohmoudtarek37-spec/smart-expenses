@@ -9,6 +9,7 @@ import 'package:intl/intl.dart' show NumberFormat;
 import '../finance/backup_codec.dart';
 import '../finance/analytics_models.dart';
 import '../finance/monthly_report.dart';
+import '../finance/installment_calendar.dart';
 import '../finance/sms_import.dart';
 import 'sms_import_review.dart';
 import 'package:printing/printing.dart';
@@ -414,6 +415,31 @@ class _FinanceShellState extends State<FinanceShell> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('تعذر قراءة ملف SMS. مفيش بيانات اتغيرت.'),
+      ));
+    }
+  }
+
+  Future<void> _exportCalendar() async {
+    if (_plans.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('أضف قسطًا واحدًا على الأقل لتصدير المواعيد.'),
+      ));
+      return;
+    }
+    try {
+      final calendar = InstallmentCalendar.export(_plans, DateTime.now());
+      const filename = 'hesabaty-installments.ics';
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(
+          Uint8List.fromList(utf8.encode(calendar)),
+          mimeType: 'text/calendar', name: filename,
+        )],
+        fileNameOverrides: [filename],
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر تجهيز مواعيد التقويم.'),
       ));
     }
   }
@@ -831,7 +857,7 @@ class _FinanceShellState extends State<FinanceShell> {
         Wrap(spacing: 9, children: [
           _action('＋ إضافة قسط', Icons.add, () => _editInstallment()),
           _action('تصدير للتقويم', Icons.calendar_month_outlined,
-              () => _comingSoon('تصدير المواعيد للتقويم')),
+              () => _exportCalendar()),
         ]),
         _sectionTitle('الأقساط المسجلة'),
         if (summary.plans.isEmpty)
