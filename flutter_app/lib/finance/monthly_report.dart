@@ -32,9 +32,7 @@ class MonthlyReportData {
       '${month.month.toString().padLeft(2, '0')}.pdf';
 }
 
-/// Builds A4 reports *offline*. Flutter paints each page so Arabic letter
-/// shaping relies on the device's native text renderer, not missing PDF fonts.
-/// Like the legacy HTML report, the PDF pages are image-backed (not searchable).
+/// Localized labels are display-only; the underlying finance entries do not change.
 class MonthlyReportCopy {
   static String title(bool english) =>
       english ? 'Monthly transaction report' : 'تقرير المعاملات الشهري';
@@ -45,6 +43,7 @@ class MonthlyReportCopy {
           : (english ? 'Expense' : 'سحب');
 }
 
+/// Builds image-backed A4 reports offline using the device's text renderer.
 class MonthlyReportPdf {
   static const int _width = 1120;
   static const int _height = 1584;
@@ -125,7 +124,8 @@ class MonthlyReportPdf {
     text(isEnglish
         ? 'Page ${page + 1} of ${report.pageCount}'
         : 'صفحة ${page + 1} / ${report.pageCount}',
-        65, 204, 310, size: 18, right: false, color: muted);
+        isEnglish ? 780 : 65, 204, isEnglish ? 260 : 310,
+        size: 18, right: false, color: muted);
 
     rectangle(65, 294, 990, 62, const Color(0xFFEDF1F6));
     text(tr('التاريخ', 'Date'), 850, 309, 185, bold: true);
