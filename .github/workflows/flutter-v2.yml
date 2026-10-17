@@ -37,11 +37,14 @@ jobs:
       - name: Widget tests
         run: flutter test --no-pub
       - name: Build Android preview APK
-        run: flutter build apk --debug --no-pub
+        run: >-
+          flutter build apk --debug --no-pub
+          --dart-define=SUPABASE_URL=https://uusnulmlygtpgwecyuvc.supabase.co
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_ZYP1VZE40T35FIJh0w5hmg_ygnHgPgC
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: hesabaty-flutter-v2-android-debug
+          name: hesabaty-flutter-v2-android-cloud-preview
           path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
           if-no-files-found: error
