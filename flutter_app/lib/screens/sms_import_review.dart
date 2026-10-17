@@ -11,15 +11,19 @@ import '../finance/sms_import.dart';
 class SmsImportReview extends StatefulWidget {
   const SmsImportReview({
     super.key, required this.records, required this.existing,
+    this.isEnglish = false,
   });
   final List<SmsImportRecord> records;
   final List<FinanceEntry> existing;
+  final bool isEnglish;
 
   @override
   State<SmsImportReview> createState() => _SmsImportReviewState();
 }
 
 class _SmsImportReviewState extends State<SmsImportReview> {
+  String _tr(String ar, String en) => widget.isEnglish ? en : ar;
+
   final Set<int> _selected = {};
 
   bool _eligible(int index) {
@@ -36,8 +40,9 @@ class _SmsImportReviewState extends State<SmsImportReview> {
 
   Future<void> _confirm() async {
     if (_selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('اختار عملية صحيحة واحدة على الأقل للحفظ.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_tr('اختار عملية صحيحة واحدة على الأقل للحفظ.',
+            'Select at least one valid transaction.')),
       ));
       return;
     }
@@ -45,20 +50,21 @@ class _SmsImportReviewState extends State<SmsImportReview> {
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تأكيد استيراد الرسائل'),
-        content: Text('هيتم إضافة ' + count.toString() +
-            ' معاملة بعد مراجعتك إلى بيانات الجهاز. '
-            'مفيش مزامنة تلقائية، ومش هنقرأ صندوق الرسائل. '
-            'احتفظ بنسخة احتياطية قبل الاستيراد.'),
+        title: Text(_tr('تأكيد استيراد الرسائل', 'Confirm SMS import')),
+        content: Text(widget.isEnglish
+            ? 'Import $count reviewed transactions on this device. '
+              'Your SMS inbox will not be read. Keep a backup.'
+            : 'هيتم إضافة $count معاملة بعد مراجعتك إلى بيانات الجهاز. '
+              'مش هنقرأ صندوق الرسائل. احتفظ بنسخة احتياطية قبل الاستيراد.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('رجوع'),
+            child: Text(_tr('رجوع', 'Back')),
           ),
           FilledButton(
             key: const Key('confirm-sms-save'),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('تأكيد الحفظ'),
+            child: Text(_tr('تأكيد الحفظ', 'Confirm save')),
           ),
         ],
       ),
@@ -73,13 +79,16 @@ class _SmsImportReviewState extends State<SmsImportReview> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('مراجعة رسائل SMS')),
+      appBar: AppBar(title: Text(_tr('مراجعة رسائل SMS', 'Review SMS messages'))),
       body: Column(children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('التحليل مبدئي فقط. راجع نوع ومبلغ وتاريخ كل رسالة. '
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(_tr('التحليل مبدئي فقط. راجع نوع ومبلغ وتاريخ كل رسالة. '
               'الرسائل غير المفهومة وأكواد التحقق والمكررة مش هتتحفظ. '
-              'ممكن تعدّل المعاملة بعد الاستيراد.'),
+              'ممكن تعدّل المعاملة بعد الاستيراد.',
+              'SMS detection is approximate. Review each amount and date. '
+              'Unclear, duplicate and verification-code messages are excluded. '
+              'You can edit transactions after import.')),
         ),
         Expanded(child: ListView.builder(
           key: const Key('sms-review-list'),
@@ -89,10 +98,13 @@ class _SmsImportReviewState extends State<SmsImportReview> {
             final eligible = _eligible(index);
             final dup = SmsImportParser.alreadyImported(sms, widget.existing) ||
                 widget.records.take(index).any((r) => r.fingerprint == sms.fingerprint);
-            final label = dup ? 'مكررة' : !sms.valid ? 'غير مؤكدة - تجاهل' :
-                sms.type == EntryType.deposit ? 'إيداع' : 'سحب';
-            final amount = sms.amount == null ? 'المبلغ غير معروف' :
-                sms.amount!.toStringAsFixed(2) + ' جنيه';
+            final label = dup ? _tr('مكررة', 'Duplicate')
+                : !sms.valid ? _tr('غير مؤكدة - تجاهل', 'Unclear - skip') :
+                sms.type == EntryType.deposit ? _tr('إيداع', 'Income')
+                : _tr('سحب', 'Expense');
+            final amount = sms.amount == null
+                ? _tr('المبلغ غير معروف', 'Unknown amount') :
+                sms.amount!.toStringAsFixed(2) + _tr(' جنيه', ' EGP');
             return CheckboxListTile(
               key: Key('sms-row-' + index.toString()),
               value: _selected.contains(index),
@@ -122,7 +134,8 @@ class _SmsImportReviewState extends State<SmsImportReview> {
             key: const Key('save-selected-sms'),
             onPressed: _confirm,
             icon: const Icon(Icons.check),
-            label: Text('حفظ ' + _selected.length.toString() + ' عملية مختارة'),
+            label: Text(_tr('حفظ ', 'Save ') + _selected.length.toString() +
+                _tr(' عملية مختارة', ' selected transactions')),
           ),
         ),
       ),

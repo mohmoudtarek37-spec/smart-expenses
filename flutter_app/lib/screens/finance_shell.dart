@@ -462,6 +462,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       final imported = await Navigator.of(context).push<List<FinanceEntry>>(
         MaterialPageRoute(builder: (context) => SmsImportReview(
           records: records, existing: _entries,
+          isEnglish: widget.isEnglish,
         )),
       );
       if (imported == null || imported.isEmpty || !mounted || !_editable) return;
@@ -1989,7 +1990,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           subtitle: Text(_lang('الاشتراك عبر Google Play والتحقق من السيرفر', 'Google Play subscription with server verification')),
           trailing: const Icon(Icons.chevron_left),
           onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => const PremiumPage()),
+            MaterialPageRoute(builder: (_) => PremiumPage(isEnglish: widget.isEnglish)),
           ),
         )),
       const SizedBox(height: 16),

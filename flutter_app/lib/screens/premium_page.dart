@@ -6,12 +6,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Google Play purchases are disabled until the verification backend reports
 /// readiness. The app NEVER grants Premium from a device purchase callback.
 class PremiumPage extends StatefulWidget {
-  const PremiumPage({super.key});
+  const PremiumPage({super.key, this.isEnglish = false});
+  final bool isEnglish;
   @override
   State<PremiumPage> createState() => _PremiumPageState();
 }
 
 class _PremiumPageState extends State<PremiumPage> {
+  String _tr(String ar, String en) => widget.isEnglish ? en : ar;
+
   static const productId = 'hesabaty_premium_monthly';
   final _billing = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
@@ -30,7 +33,7 @@ class _PremiumPageState extends State<PremiumPage> {
         onError: (_) {
           if (mounted) {
           setState(() => _status =
-              'تعذر الاتصال بمتجر Google Play. جرّب مرة تانية.');
+              _tr('تعذر الاتصال بمتجر Google Play. جرّب مرة تانية.', 'Cannot connect to Google Play. Try again.'));
         }
         });
     _initialize();
@@ -60,34 +63,35 @@ class _PremiumPageState extends State<PremiumPage> {
       if (!mounted) return;
       if (!ready) {
         setState(() {
-          _status = 'الاشتراكات لسه مش متاحة: '
-              'لازم نفعّل Google Play Developer API والتحقق على السيرفر.';
+          _status = _tr('الاشتراكات لسه مش متاحة: '
+              'لازم نفعّل Google Play Developer API والتحقق على السيرفر.',
+              'Subscriptions are not available yet: server verification is not configured.');
         });
         return;
       }
       final store = await _billing.isAvailable();
       if (!mounted) return;
       if (!store) {
-        setState(() => _status = 'Google Play Billing مش متاح على الجهاز.');
+        setState(() => _status = _tr('Google Play Billing مش متاح على الجهاز.', 'Google Play Billing is unavailable on this device.'));
         return;
       }
       final productsResponse = await _billing.queryProductDetails({productId});
       if (!mounted) return;
       if (productsResponse.productDetails.isEmpty) {
         setState(() => _status =
-            'منتج Premium مش متاح على Google Play للحساب ده.');
+            _tr('منتج Premium مش متاح على Google Play للحساب ده.', 'Premium is not offered for this Google Play account.'));
         return;
       }
       setState(() {
         _backendReady = true;
         _storeReady = true;
         _product = productsResponse.productDetails.first;
-        _status = 'الاشتراك متاح عبر Google Play.';
+        _status = _tr('الاشتراك متاح عبر Google Play.', 'Subscribe using Google Play.');
       });
     } catch (_) {
       if (mounted) {
           setState(() => _status =
-          'تعذر فحص المتجر والسيرفر. مش هنبدأ شراء غير قابل للتحقق.');
+          _tr('تعذر فحص المتجر والسيرفر. مش هنبدأ شراء غير قابل للتحقق.', 'Cannot verify the store and server. Purchase is disabled for your protection.'));
         }
     } finally {
       if (mounted) {
@@ -107,12 +111,12 @@ class _PremiumPageState extends State<PremiumPage> {
       if (!mounted) return;
       if (!started) {
           setState(() => _status =
-          'متجر Google Play ما بدأش عملية الاشتراك.');
+          _tr('متجر Google Play ما بدأش عملية الاشتراك.', 'Google Play did not start the purchase.'));
         }
     } catch (_) {
       if (mounted) {
           setState(() => _status =
-          'تعذر بدء الاشتراك. لم يتم تفعيل Premium.');
+          _tr('تعذر بدء الاشتراك. لم يتم تفعيل Premium.', 'Could not start purchase. Premium is not active.'));
         }
     }
   }
@@ -123,11 +127,11 @@ class _PremiumPageState extends State<PremiumPage> {
       await _billing.restorePurchases();
       if (mounted) {
           setState(() => _status =
-          'هنراجع أي اشتراكات سابقة مع Google Play.');
+          _tr('هنراجع أي اشتراكات سابقة مع Google Play.', 'Checking past subscriptions with Google Play.'));
         }
     } catch (_) {
       if (mounted) {
-          setState(() => _status = 'تعذرت استعادة مشتريات Google Play.');
+          setState(() => _status = _tr('تعذرت استعادة مشتريات Google Play.', 'Could not restore Google Play purchases.'));
         }
     }
   }
@@ -139,20 +143,20 @@ class _PremiumPageState extends State<PremiumPage> {
       if (purchase.status == PurchaseStatus.pending) {
         if (mounted) {
           setState(() => _status =
-            'العملية لسه تحت المعالجة في Google Play.');
+            _tr('العملية لسه تحت المعالجة في Google Play.', 'Purchase is pending in Google Play.'));
         }
         continue;
       }
       if (purchase.status == PurchaseStatus.canceled) {
         if (mounted) {
-          setState(() => _status = 'تم إلغاء عملية الشراء.');
+          setState(() => _status = _tr('تم إلغاء عملية الشراء.', 'Purchase was cancelled.'));
         }
         continue;
       }
       if (purchase.status == PurchaseStatus.error) {
         if (mounted) {
           setState(() => _status =
-            'فشل الشراء في Google Play. لم يتم تفعيل Premium.');
+            _tr('فشل الشراء في Google Play. لم يتم تفعيل Premium.', 'Purchase failed. Premium was not activated.'));
         }
         continue;
       }
@@ -164,7 +168,7 @@ class _PremiumPageState extends State<PremiumPage> {
       if (userId == null) continue;
       setState(() {
         _processing = true;
-        _status = 'بنتحقق من الاشتراك على السيرفر...';
+        _status = _tr('بنتحقق من الاشتراك على السيرفر...', 'Verifying purchase on the server...');
       });
       try {
         final response = await Supabase.instance.client.functions.invoke(
@@ -186,14 +190,15 @@ class _PremiumPageState extends State<PremiumPage> {
         await _refreshEntitlement();
         if (mounted) {
           setState(() => _status =
-            _premium ? 'تم تأكيد اشتراك Premium على السيرفر.'
-                : 'تم التحقق لكن الاشتراك مش نشط حاليًا.');
+            _premium ? _tr('تم تأكيد اشتراك Premium على السيرفر.', 'Premium subscription verified.')
+                : _tr('تم التحقق لكن الاشتراك مش نشط حاليًا.', 'Subscription verified but currently inactive.'));
         }
       } catch (_) {
         if (mounted) {
           setState(() => _status =
-            'تعذر التحقق من الشراء. مش هنفعّل Premium قبل تأكيد Google. '
-            'راجع الاتصال أو جرّب استعادة المشتريات.');
+            _tr('تعذر التحقق من الشراء. مش هنفعّل Premium قبل تأكيد Google. '
+            'راجع الاتصال أو جرّب استعادة المشتريات.',
+            'Purchase verification failed. Premium stays locked until Google confirms the purchase.'));
         }
       } finally {
         if (mounted) {
@@ -211,19 +216,22 @@ class _PremiumPageState extends State<PremiumPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('حساباتي Premium')),
+    appBar: AppBar(title: Text(_tr('حساباتي Premium', 'Hesabaty Premium'))),
     body: SafeArea(child: ListView(
       padding: const EdgeInsets.all(22),
       children: [
         const Icon(Icons.workspace_premium_outlined, size: 72),
         const SizedBox(height: 12),
-        Text(_premium ? 'اشتراكك نشط' : 'حساباتي Premium',
+        Text(_premium ? _tr('اشتراكك نشط', 'Your subscription is active')
+            : _tr('حساباتي Premium', 'Hesabaty Premium'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 12),
-        const Text('الدفع والاشتراكات من خلال Google Play فقط. '
+        Text(_tr('الدفع والاشتراكات من خلال Google Play فقط. '
             'السعر النهائي بيظهر من Google Play بعملة حسابك '
             'قبل ما توافق على الدفع.',
+            'Subscriptions are billed by Google Play only. The final price '
+            'and currency appear in the store before purchase.'),
             textAlign: TextAlign.center),
         const SizedBox(height: 20),
         if (_product != null)
@@ -239,18 +247,21 @@ class _PremiumPageState extends State<PremiumPage> {
           onPressed: _premium || _loading || _processing ||
               !_backendReady || !_storeReady ? null : _buy,
           icon: const Icon(Icons.shopping_bag_outlined),
-          label: Text(_premium ? 'Premium مفعل' : 'اشترك عبر Google Play'),
+          label: Text(_premium ? _tr('Premium مفعل', 'Premium active')
+              : _tr('اشترك عبر Google Play', 'Subscribe with Google Play')),
         ),
         OutlinedButton(
           key: const Key('restore-premium'),
           onPressed: _loading || !_backendReady || !_storeReady
               ? null : _restore,
-          child: const Text('استعادة مشتريات Google Play'),
+          child: Text(_tr('استعادة مشتريات Google Play', 'Restore Google Play purchases')),
         ),
-        const Text('الاشتراك لا يتفعل إلا بعد التحقق من صلاحية '
+        Text(_tr('الاشتراك لا يتفعل إلا بعد التحقق من صلاحية '
             'المشتريات على السيرفر. لا نستخدم دفعًا خارج Google Play.',
+            'Premium unlocks only after server-side purchase verification. '
+            'All billing uses Google Play.'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12)),
+            style: const TextStyle(fontSize: 12)),
       ],
     )),
   );
