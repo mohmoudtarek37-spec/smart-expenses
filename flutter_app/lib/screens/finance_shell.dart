@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/backup_codec.dart';
+import '../finance/cloud_sync.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../finance/finance_models.dart';
 import '../finance/installment_models.dart';
 import '../finance/transaction_store.dart';
@@ -21,6 +23,7 @@ class FinanceShell extends StatefulWidget {
     super.key,
     this.entries = const [],
     this.store,
+    this.cloudEnabled = false,
     this.isDark = false,
     this.onToggleTheme,
     this.onSignOut,
@@ -28,6 +31,7 @@ class FinanceShell extends StatefulWidget {
 
   final List<FinanceEntry> entries;
   final TransactionStore? store;
+  final bool cloudEnabled;
   final bool isDark;
   final VoidCallback? onToggleTheme;
   final VoidCallback? onSignOut;
@@ -52,6 +56,8 @@ class _FinanceShellState extends State<FinanceShell> {
   List<String> _customCategories = [];
   Map<String, dynamic> _prefs = {};
   String _createdAt = '';
+  int? _cloudRevision;
+  bool _cloudBusy = false;
   bool _loading = false;
   bool _saving = false;
   String? _loadError;
@@ -1019,6 +1025,142 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
+  Future<void> _syncCloudNow() async {
+    if (!_editable || _cloudBusy || widget.store is! LedgerStore) return;
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) return;
+    setState(() => _cloudBusy = true);
+    try {
+      final sync = CloudFinanceSync(client);
+      final remote = await sync.fetch();
+      if (!mounted) return;
+      final local = _currentLedger;
+      final hasLocal = local.entries.isNotEmpty || local.installments.isNotEmpty;
+      if (remote == null) {
+        if (!hasLocal) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('مفيش معاملات محلية أو سحابية للمزامنة.'),
+          ));
+          return;
+        }
+        final confirm = await _confirmCloudAction(
+          title: 'رفع أول نسخة للسحابة؟',
+          description: 'ده أول حفظ سحابي للحساب. بيانات جهازك هتفضل '
+              'محفوظة محليًا. مش هنرفع أي بيانات إلا بعد موافقتك.',
+          approve: 'رفع البيانات',
+        );
+        if (confirm != true || !mounted) return;
+        final revision = await sync.push(local, expectedRevision: null);
+        if (!mounted) return;
+        setState(() => _cloudRevision = revision);
+        _showCloudMessage('اتحفظت نسخة على حسابك السحابي.');
+        return;
+      }
+      // A remote snapshot is never overwritten based on stale local state.
+      if (!hasLocal) {
+        final confirm = await _confirmCloudAction(
+          title: 'استرجاع بيانات الحساب؟',
+          description: 'لقينا ${remote.ledger.entries.length} معاملة '
+              'و${remote.ledger.installments.length} قسط على السحابة. '
+              'جهازك الحالي فاضي. تحب تنزّلهم على الجهاز؟',
+          approve: 'تنزيل النسخة',
+        );
+        if (confirm != true || !mounted) return;
+        await _replaceLedgerLocally(remote.ledger);
+        if (!mounted) return;
+        setState(() => _cloudRevision = remote.revision);
+        _showCloudMessage('تم تنزيل بيانات الحساب على الجهاز.');
+        return;
+      }
+      final localJson = BackupCodec.encode(local);
+      final remoteJson = BackupCodec.encode(remote.ledger);
+      // Ignore timestamps in wrapper by comparing canonical financial data.
+      final localData =
+          (jsonDecode(localJson) as Map<String, dynamic>)['data'];
+      final remoteData =
+          (jsonDecode(remoteJson) as Map<String, dynamic>)['data'];
+      if (jsonEncode(localData) == jsonEncode(remoteData)) {
+        setState(() => _cloudRevision = remote.revision);
+        _showCloudMessage('نسخة الجهاز والسحابة متطابقتين.');
+        return;
+      }
+      if (_cloudRevision != null && _cloudRevision == remote.revision) {
+        final confirm = await _confirmCloudAction(
+          title: 'رفع تعديلات الجهاز؟',
+          description: 'نسخة السيرفر بنفس الإصدار اللي اتراجع قبل كده. '
+              'رفع تعديلات الجهاز هيستبدل النسخة السحابية الحالية، '
+              'بس لو جهاز آخر حفظ نسخة أحدث هيترفض الرفع لحمايتك.',
+          approve: 'رفع التعديلات',
+        );
+        if (confirm != true || !mounted) return;
+        final revision = await sync.push(
+          local, expectedRevision: remote.revision,
+        );
+        if (!mounted) return;
+        setState(() => _cloudRevision = revision);
+        _showCloudMessage('تم رفع التغييرات بأمان.');
+      } else {
+        _showCloudMessage('في بيانات مختلفة على الجهاز والسحابة. '
+            'المزامنة اتوقفت بدون استبدال أي بيانات. '
+            'احفظ نسخة احتياطية وراجع الاختلاف قبل الاختيار.');
+      }
+    } on CloudConflict {
+      if (!mounted) return;
+      setState(() => _cloudRevision = null);
+      _showCloudMessage('اتحفظت نسخة أحدث من جهاز تاني. '
+          'مش هنكتب فوقها. راجع الفرق الأول.');
+    } catch (_) {
+      if (!mounted) return;
+      _showCloudMessage('تعذرت المزامنة. '
+          'بيانات الجهاز اتسابت زي ما هي.');
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<bool?> _confirmCloudAction({
+    required String title,
+    required String description,
+    required String approve,
+  }) => showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(description),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('إلغاء')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(approve)),
+      ],
+    ),
+  );
+
+  Future<void> _replaceLedgerLocally(InstallmentLedger ledger) async {
+    final store = widget.store! as LedgerStore;
+    if (store is BackupRestorableStore) {
+      await store.replaceFromBackup(ledger);
+    } else {
+      await store.saveLedger(ledger);
+    }
+    if (!mounted) return;
+    setState(() {
+      _entries = ledger.entries;
+      _plans = ledger.installments;
+      _customCategories = ledger.customCategories;
+      _prefs = ledger.prefs;
+      _createdAt = ledger.createdAt;
+    });
+  }
+
+  void _showCloudMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(text), duration: const Duration(seconds: 8),
+    ));
+  }
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
@@ -1052,6 +1194,27 @@ class _FinanceShellState extends State<FinanceShell> {
           ),
         ],
       ])),
+      const SizedBox(height: 16),
+      if (widget.cloudEnabled)
+        _panel(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('الحساب السحابي',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 8),
+            const Text('مزامنة يدوية تجريبية. لن ندمج أو نستبدل '
+                'بيانات جهازين مختلفين تلقائيًا.',
+                style: TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('sync-cloud'),
+              onPressed: _editable && !_cloudBusy ? _syncCloudNow : null,
+              icon: const Icon(Icons.cloud_sync_outlined),
+              label: const Text('مراجعة ومزامنة حسابي الآن'),
+            ),
+            if (_cloudBusy) const LinearProgressIndicator(),
+          ],
+        )),
       const SizedBox(height: 16),
       _panel(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
