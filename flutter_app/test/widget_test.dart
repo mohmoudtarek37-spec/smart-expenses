@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hesabaty/finance/finance_models.dart';
+import 'package:hesabaty/finance/installment_models.dart';
 import 'package:hesabaty/finance/transaction_store.dart';
 import 'package:hesabaty/main.dart';
 import 'package:hesabaty/screens/finance_shell.dart';
@@ -140,6 +141,39 @@ void main() {
     expect(find.text('لا توجد معاملات مطابقة في هذا الشهر'), findsOneWidget);
   });
 
+  testWidgets('installment editor and payment update atomic local ledger',
+      (WidgetTester tester) async {
+    final store = _WidgetLedgerStore();
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+          child: FinanceShell(store: store)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الأقساط').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('installments-page')), findsOneWidget);
+    await tester.tap(find.text('＋ إضافة قسط'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('installment-name')),
+        'قسط الموبايل');
+    await tester.enterText(find.byKey(const Key('installment-amount')), '250');
+    await tester.ensureVisible(find.byKey(const Key('save-installment')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-installment')));
+    await tester.pumpAndSettle();
+    expect(store.ledger.installments, hasLength(1));
+    expect(store.ledger.installments.single.amount, 250);
+    await tester.tap(find.text('✓ تسجيل الدفع'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pay-new-withdrawal')));
+    await tester.pumpAndSettle();
+    expect(store.ledger.entries, hasLength(1));
+    expect(store.ledger.entries.single.amount, 250);
+    expect(store.ledger.installments.single.payments, hasLength(1));
+    expect(InstallmentMonthSummary(store.ledger.installments, DateTime.now())
+        .remaining, 0);
+  });
+
   testWidgets('preview prevents accidentally creating fake user records',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
@@ -162,4 +196,24 @@ class _WidgetStore implements TransactionStore {
     if (failOnSave) throw StateError('simulated disk write failure');
     entries = List.of(next);
   }
+}
+
+class _WidgetLedgerStore implements LedgerStore {
+  InstallmentLedger ledger =
+      const InstallmentLedger(entries: [], installments: []);
+
+  @override
+  Future<List<FinanceEntry>> load() async => List.of(ledger.entries);
+
+  @override
+  Future<InstallmentLedger> loadLedger() async => ledger;
+
+  @override
+  Future<void> save(List<FinanceEntry> entries) async {
+    ledger = InstallmentLedger(
+        entries: entries, installments: ledger.installments);
+  }
+
+  @override
+  Future<void> saveLedger(InstallmentLedger next) async => ledger = next;
 }
