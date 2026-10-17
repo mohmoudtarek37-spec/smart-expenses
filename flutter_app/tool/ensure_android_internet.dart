@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
 import 'dart:io';
 
 /// Prepare generated Android manifests for cloud auth, password reset and

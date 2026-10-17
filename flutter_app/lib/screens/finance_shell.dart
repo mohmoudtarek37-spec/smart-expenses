@@ -1405,12 +1405,16 @@ class _FinanceShellState extends State<FinanceShell> {
   Future<void> _restoreCloudIfLocalEmpty() async {
     if (!widget.cloudEnabled || _cloudBusy || !_editable ||
         _entries.isNotEmpty || _plans.isNotEmpty ||
-        widget.store is! LedgerStore) return;
+        widget.store is! LedgerStore) {
+      return;
+    }
     setState(() => _cloudBusy = true);
     try {
       final remote = await CloudFinanceSync(Supabase.instance.client).fetch();
       if (!mounted || remote == null || _entries.isNotEmpty ||
-          _plans.isNotEmpty) return;
+          _plans.isNotEmpty) {
+        return;
+      }
       await _replaceLedgerLocally(remote.ledger);
       if (!mounted) return;
       await _rememberCloudRevision(remote.revision);
@@ -1432,7 +1436,9 @@ class _FinanceShellState extends State<FinanceShell> {
 
   Future<void> _autoSyncAfterWrite() async {
     if (!widget.cloudEnabled || _cloudBusy || !mounted ||
-        widget.store is! LedgerStore) return;
+        widget.store is! LedgerStore) {
+      return;
+    }
     final local = _currentLedger;
     final checkpoint = _cloudRevision;
     setState(() {
