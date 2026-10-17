@@ -21,6 +21,59 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
+  testWidgets('guest opens dashboard, with optional login only in Settings',
+      (WidgetTester tester) async {
+    final guest = _WidgetLedgerStore();
+    var openCount = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: FinanceShell(
+          key: const ValueKey('guest-shell'),
+          store: guest,
+          onOpenAuth: () => openCount++,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-page')), findsOneWidget);
+    expect(find.byKey(const Key('add-transaction')), findsOneWidget);
+    expect(find.byKey(const Key('login-from-settings')), findsNothing);
+    expect(find.text('أهلًا بيك 👋'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('settings-action')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('guest-account-status')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('login-from-settings')));
+    await tester.tap(find.byKey(const Key('login-from-settings')));
+    expect(openCount, 1);
+    expect(find.textContaining('مش بتتنقل للحساب تلقائيًا'), findsOneWidget);
+    expect(find.byKey(const Key('settings-page')), findsOneWidget);
+  });
+
+  testWidgets('signed-in account shows sign out, not guest login',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: FinanceShell(
+          key: const ValueKey('user-test'),
+          store: _WidgetLedgerStore(),
+          cloudEnabled: true,
+          accountEmail: 'test@example.com',
+          onSignOut: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-action')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('account-status')), findsOneWidget);
+    expect(find.text('test@example.com'), findsOneWidget);
+    expect(find.byKey(const Key('login-from-settings')), findsNothing);
+    expect(find.text('تسجيل الخروج'), findsOneWidget);
+  });
+
   testWidgets('month selector updates its label',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
