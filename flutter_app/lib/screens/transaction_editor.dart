@@ -16,9 +16,11 @@ class TransactionEditResult {
 }
 
 class TransactionEditor extends StatefulWidget {
-  const TransactionEditor({super.key, this.original});
+  const TransactionEditor({super.key, this.original,
+      this.customCategories = const []});
 
   final FinanceEntry? original;
+  final List<String> customCategories;
 
   @override
   State<TransactionEditor> createState() => _TransactionEditorState();
@@ -71,7 +73,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
   List<String> get _categories {
     final all = _type == EntryType.withdrawal
         ? _expenseCategories : _incomeCategories;
-    return {...all, _category}.toList();
+    return {...all, ...widget.customCategories, _category}.toList();
   }
 
   String? _validateAmount(String? raw) {
