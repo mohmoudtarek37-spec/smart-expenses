@@ -115,7 +115,8 @@ class _FinanceShellState extends State<FinanceShell> {
   );
 
   bool get _editable =>
-      widget.store != null && !_loading && !_saving && _loadError == null;
+      widget.store != null && !_loading && !_saving && !_cloudBusy &&
+      _loadError == null;
 
   Future<void> _loadSavedTransactions() async {
     try {
@@ -123,8 +124,19 @@ class _FinanceShellState extends State<FinanceShell> {
       final ledger = store is LedgerStore
           ? await store.loadLedger()
           : InstallmentLedger(entries: await store.load(), installments: const []);
+      int? checkpoint;
+      if (store is CloudRevisionStore) {
+        try {
+          checkpoint = await store.readCloudRevision();
+        } catch (_) {
+          // A corrupt checkpoint blocks pushing previous changes, not
+          // reading the financial ledger; never trust a bad revision.
+          checkpoint = null;
+        }
+      }
       if (!mounted) return;
       setState(() {
+        _cloudRevision = checkpoint;
         _entries = ledger.entries;
         _plans = ledger.installments;
         _customCategories = ledger.customCategories;
@@ -1025,6 +1037,15 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
+  Future<void> _rememberCloudRevision(int revision) async {
+    final store = widget.store;
+    if (store is CloudRevisionStore) {
+      await store.recordCloudRevision(revision);
+    }
+    if (!mounted) return;
+    setState(() => _cloudRevision = revision);
+  }
+
   Future<void> _syncCloudNow() async {
     if (!_editable || _cloudBusy || widget.store is! LedgerStore) return;
     final client = Supabase.instance.client;
@@ -1052,7 +1073,8 @@ class _FinanceShellState extends State<FinanceShell> {
         if (confirm != true || !mounted) return;
         final revision = await sync.push(local, expectedRevision: null);
         if (!mounted) return;
-        setState(() => _cloudRevision = revision);
+        await _rememberCloudRevision(revision);
+        if (!mounted) return;
         _showCloudMessage('اتحفظت نسخة على حسابك السحابي.');
         return;
       }
@@ -1068,7 +1090,8 @@ class _FinanceShellState extends State<FinanceShell> {
         if (confirm != true || !mounted) return;
         await _replaceLedgerLocally(remote.ledger);
         if (!mounted) return;
-        setState(() => _cloudRevision = remote.revision);
+        await _rememberCloudRevision(remote.revision);
+        if (!mounted) return;
         _showCloudMessage('تم تنزيل بيانات الحساب على الجهاز.');
         return;
       }
@@ -1083,7 +1106,8 @@ class _FinanceShellState extends State<FinanceShell> {
       final localData = dataOf(local);
       final remoteData = dataOf(remote.ledger);
       if (jsonEncode(localData) == jsonEncode(remoteData)) {
-        setState(() => _cloudRevision = remote.revision);
+        await _rememberCloudRevision(remote.revision);
+        if (!mounted) return;
         _showCloudMessage('نسخة الجهاز والسحابة متطابقتين.');
         return;
       }
@@ -1100,7 +1124,8 @@ class _FinanceShellState extends State<FinanceShell> {
           local, expectedRevision: remote.revision,
         );
         if (!mounted) return;
-        setState(() => _cloudRevision = revision);
+        await _rememberCloudRevision(revision);
+        if (!mounted) return;
         _showCloudMessage('تم رفع التغييرات بأمان.');
       } else {
         _showCloudMessage('في بيانات مختلفة على الجهاز والسحابة. '
@@ -1110,6 +1135,14 @@ class _FinanceShellState extends State<FinanceShell> {
     } on CloudConflict {
       if (!mounted) return;
       setState(() => _cloudRevision = null);
+      if (widget.store is CloudRevisionStore) {
+        try {
+          await (widget.store! as CloudRevisionStore).clearCloudRevision();
+        } catch (_) {
+          // The server still rejects stale updates even if clearing fails.
+        }
+      }
+      if (!mounted) return;
       _showCloudMessage('اتحفظت نسخة أحدث من جهاز تاني. '
           'مش هنكتب فوقها. راجع الفرق الأول.');
     } catch (_) {
