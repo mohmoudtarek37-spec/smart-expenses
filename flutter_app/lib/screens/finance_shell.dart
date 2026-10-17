@@ -2041,9 +2041,9 @@ class _FinanceShellState extends State<FinanceShell> {
                   : const Color(0xFFFFF4D7),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Text(
-                _loadError ?? widget.cloudEnabled
+                _loadError ?? (widget.cloudEnabled
                     ? _lang('نسخة اختبار: الحفظ المحلي والمزامنة السحابية قيد التحقق. احتفظ بنسخة احتياطية.', 'Preview: cloud sync is not fully verified; keep a backup.')
-                    : _lang('نسخة تجريبية: معاملات الضيف محفوظة على هذا الجهاز فقط. احتفظ بنسخة احتياطية.', 'Preview: guest transactions are saved on this device only.'),
+                    : _lang('نسخة تجريبية: معاملات الضيف محفوظة على هذا الجهاز فقط. احتفظ بنسخة احتياطية.', 'Preview: guest transactions are saved on this device only.')),
                 style: TextStyle(fontSize: 11,
                     color: widget.isDark ? Colors.white : Colors.black87),
               ),
