@@ -101,7 +101,21 @@ void main() {
     expect(find.byKey(const Key('month-5-withdrawal')), findsOneWidget);
     expect(find.text('حركة آخر 6 شهور'), findsOneWidget);
     expect(find.text('المقارنة الشهرية'), findsOneWidget);
+    final analyticsScroll = find.descendant(
+      of: find.byKey(const Key('analytics-page')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('expense-comparison')), 170,
+      scrollable: analyticsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('أعلى من الشهر السابق'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('expense-category-مطاعم')), 150,
+      scrollable: analyticsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('expense-category-مطاعم')), findsOneWidget);
     expect(find.byKey(const Key('expense-category-صحة')), findsNothing);
   });
@@ -112,7 +126,21 @@ void main() {
     await tester.tap(find.text('التحليلات'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('six-month-chart')), findsOneWidget);
+    final analyticsScroll = find.descendant(
+      of: find.byKey(const Key('analytics-page')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('expense-comparison')), 170,
+      scrollable: analyticsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('مفيش مصروفات مسجلة في الشهرين.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('analytics-spending-share')), 170,
+      scrollable: analyticsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('مفيش مصروفات للتحليل في الشهر ده'), findsOneWidget);
     expect(find.byKey(const Key('analytics-spending-share')), findsOneWidget);
   });
