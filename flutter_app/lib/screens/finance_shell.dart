@@ -314,7 +314,8 @@ class _FinanceShellState extends State<FinanceShell> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => TransactionEditor(original: original),
+      builder: (context) => TransactionEditor(
+          original: original, customCategories: _customCategories),
     );
     if (result == null || !mounted || !_editable) return;
     final next = List<FinanceEntry>.from(_entries);
@@ -442,6 +443,67 @@ class _FinanceShellState extends State<FinanceShell> {
         content: Text('تعذر تجهيز مواعيد التقويم.'),
       ));
     }
+  }
+
+  Future<void> _addCustomCategory() async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    final input = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إضافة تصنيف مخصص'),
+        content: TextField(
+          key: const Key('custom-category-input'),
+          controller: input, maxLength: 40, autofocus: true,
+          decoration: const InputDecoration(hintText: 'اسم التصنيف'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, input.text.trim()),
+              child: const Text('إضافة')),
+        ],
+      ),
+    );
+    input.dispose();
+    if (name == null || !mounted || !_editable) return;
+    if (name.isEmpty || name.length > 40 || _customCategories.contains(name) ||
+        _customCategories.length >= 50) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('الاسم مكرر أو غير صالح أو وصلت لـ50 تصنيف.'),
+      ));
+      return;
+    }
+    await _applyLedger(InstallmentLedger(
+      entries: _entries, installments: _plans,
+      customCategories: [..._customCategories, name],
+      prefs: _prefs, createdAt: _createdAt,
+    ), 'اتضاف التصنيف الجديد.');
+  }
+
+  Future<void> _removeCustomCategory(String value) async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف التصنيف المخصص؟'),
+        content: const Text('المعاملات القديمة هتحتفظ بتصنيفها، '
+            'لكن مش هيظهر ضمن اختيارات المعاملات الجديدة.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || !_editable) return;
+    await _applyLedger(InstallmentLedger(
+      entries: _entries, installments: _plans,
+      customCategories: _customCategories.where((x) => x != value).toList(),
+      prefs: _prefs, createdAt: _createdAt,
+    ), 'التصنيف اتحذف من الاختيارات الجديدة.');
   }
 
   void _comingSoon(String feature) {
@@ -1625,6 +1687,30 @@ class _FinanceShellState extends State<FinanceShell> {
               'احفظه بعيدًا عن الآخرين، وما تعتمدش على النسخة الحالية '
               'كبديل لتطبيق حساباتي القديم.',
               style: TextStyle(fontSize: 11)),
+        ],
+      )),
+      const SizedBox(height: 16),
+      _panel(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('التصنيفات المخصصة',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          for (final category in _customCategories)
+            ListTile(
+              title: Text(category),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'حذف التصنيف',
+                onPressed: _editable
+                    ? () => _removeCustomCategory(category) : null,
+              ),
+            ),
+          OutlinedButton.icon(
+            key: const Key('add-custom-category'),
+            onPressed: _editable ? _addCustomCategory : null,
+            icon: const Icon(Icons.add),
+            label: const Text('إضافة تصنيف جديد'),
+          ),
         ],
       )),
       const SizedBox(height: 16),
