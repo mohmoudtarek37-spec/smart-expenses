@@ -28,6 +28,26 @@ class ExpenseComparison {
   final double? percentage;
   final bool isPartialMonth;
 
+  String describeEnglish(String Function(num) formatNumber) {
+    if (direction == ExpenseDirection.noExpenses) {
+      return 'No expenses recorded in either month.';
+    }
+    if (direction == ExpenseDirection.noComparison) {
+      return 'There were no expenses last month, so a percentage '
+          'comparison is not available.';
+    }
+    final partial = isPartialMonth
+        ? ' (Preliminary comparison: this month is still in progress.)'
+        : '';
+    if (direction == ExpenseDirection.unchanged) {
+      return 'Expenses are unchanged from last month' + partial;
+    }
+    final movement = direction == ExpenseDirection.increased
+        ? 'higher' : 'lower';
+    return 'Expenses are ' + movement + ' than last month by ' +
+        formatNumber(percentage!.abs()) + '%' + partial;
+  }
+
   String describe(String Function(num) formatNumber) {
     if (direction == ExpenseDirection.noExpenses) {
       return 'مفيش مصروفات مسجلة في الشهرين.';
