@@ -214,6 +214,7 @@ class _AuthGateState extends State<_AuthGate> {
           ? EncryptedTransactionStore(accountScope: user.id)
           : _guestStore,
       cloudEnabled: signedIn,
+      guestStore: signedIn ? _guestStore : null,
       onOpenAuth: signedIn ? null : _showSignIn,
       accountEmail: signedIn ? user.email : null,
       isDark: widget.isDark,

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/backup_codec.dart';
+import '../finance/guest_migration.dart';
 import '../finance/analytics_models.dart';
 import 'premium_page.dart';
 import '../finance/monthly_report.dart';
@@ -30,6 +31,7 @@ class FinanceShell extends StatefulWidget {
     super.key,
     this.entries = const [],
     this.store,
+    this.guestStore,
     this.cloudEnabled = false,
     this.isDark = false,
     this.onToggleTheme,
@@ -40,6 +42,7 @@ class FinanceShell extends StatefulWidget {
 
   final List<FinanceEntry> entries;
   final TransactionStore? store;
+  final TransactionStore? guestStore;
   final bool cloudEnabled;
   final bool isDark;
   final VoidCallback? onToggleTheme;
@@ -1640,6 +1643,61 @@ class _FinanceShellState extends State<FinanceShell> {
     ));
   }
 
+  Future<void> _importGuestData() async {
+    if (!_editable || widget.guestStore is! LedgerStore ||
+        widget.store is! LedgerStore || !widget.cloudEnabled) {
+      return;
+    }
+    try {
+      final guest = await (widget.guestStore! as LedgerStore).loadLedger();
+      if (!mounted || !_editable) return;
+      final checked = GuestMigration.prepare(
+        guest: guest, account: _currentLedger);
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('نقل بيانات الضيف لحسابك؟'),
+          content: Text(
+            'بيانات الضيف فيها ${checked.entries.length} معاملة، '
+            'و${checked.installments.length} قسط، '
+            'و${checked.customCategories.length} تصنيف مخصص.\n\n'
+            'النقل هيحفظ نسخة في حسابك من غير ما يمسح بيانات الضيف. '
+            'مش هنستبدل حساب فيه معاملات بالفعل، '
+            'ولو في نسخة سحابية مختلفة الرفع هيقف.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء')),
+            FilledButton(
+              key: const Key('confirm-guest-migration'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('تأكيد النقل')),
+          ],
+        ),
+      );
+      if (approved != true || !mounted || !_editable) return;
+      // Re-check the destination immediately before touching its storage.
+      final current = await (widget.store! as LedgerStore).loadLedger();
+      final next = GuestMigration.prepare(guest: guest, account: current);
+      await _replaceLedgerLocally(next);
+      if (!mounted) return;
+      _showCloudMessage('اتنسخت البيانات للحساب على الجهاز، '
+          'وبيانات الضيف الأصلية لسه موجودة.');
+      await _autoSyncAfterWrite();
+    } on StateError {
+      if (!mounted) return;
+      _showCloudMessage('النقل يحتاج حسابًا فارغًا وبيانات ضيف موجودة. '
+          'للحساب غير الفارغ، صدّر نسخة احتياطية بدل الاستبدال.');
+    } on FormatException {
+      if (!mounted) return;
+      _showCloudMessage('بيانات الضيف غير صالحة للنقل. مفيش بيانات اتغيرت.');
+    } catch (_) {
+      if (!mounted) return;
+      _showCloudMessage('تعذر النقل. احتفظ بالبيانات على الجهازين.');
+    }
+  }
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
@@ -1721,6 +1779,17 @@ class _FinanceShellState extends State<FinanceShell> {
         ],
       ])),
       const SizedBox(height: 16),
+      if (widget.cloudEnabled && widget.guestStore is LedgerStore) ...[
+        _panel(child: ListTile(
+          key: const Key('import-guest-data'),
+          leading: const Icon(Icons.move_to_inbox_outlined),
+          title: const Text('نقل بيانات الضيف لحسابي'),
+          subtitle: const Text('بموافقتك، من غير مسح النسخة الأصلية'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: _editable ? _importGuestData : null,
+        )),
+        const SizedBox(height: 16),
+      ],
       if (widget.cloudEnabled)
         _panel(child: ListTile(
           key: const Key('premium-settings'),
