@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: flutter-v2-android-preview
+  cancel-in-progress: true
+
 jobs:
   android-preview:
     name: Analyze, test and build Android preview
