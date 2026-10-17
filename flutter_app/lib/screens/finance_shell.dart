@@ -127,7 +127,7 @@ class _FinanceShellState extends State<FinanceShell> {
       int? checkpoint;
       if (store is CloudRevisionStore) {
         try {
-          checkpoint = await store.readCloudRevision();
+          checkpoint = await (store as CloudRevisionStore).readCloudRevision();
         } catch (_) {
           // A corrupt checkpoint blocks pushing previous changes, not
           // reading the financial ledger; never trust a bad revision.
@@ -1040,7 +1040,7 @@ class _FinanceShellState extends State<FinanceShell> {
   Future<void> _rememberCloudRevision(int revision) async {
     final store = widget.store;
     if (store is CloudRevisionStore) {
-      await store.recordCloudRevision(revision);
+      await (store as CloudRevisionStore).recordCloudRevision(revision);
     }
     if (!mounted) return;
     setState(() => _cloudRevision = revision);
