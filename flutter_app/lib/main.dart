@@ -32,7 +32,11 @@ class HesabatyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegatesToList(),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -230,7 +234,8 @@ class _PreviewHomeState extends State<_PreviewHome> {
       appBar: AppBar(
         title: const Text('حساباتي'),
         actions: [
-          if (Supabase.instanceOrNull?.client.auth.currentUser != null)
+          if (_backendUrl.isNotEmpty && _publishableKey.isNotEmpty &&
+              Supabase.instance.client.auth.currentUser != null)
             IconButton(
               onPressed: () => Supabase.instance.client.auth.signOut(),
               tooltip: 'تسجيل الخروج',
