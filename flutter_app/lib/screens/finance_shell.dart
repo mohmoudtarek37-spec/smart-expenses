@@ -1642,7 +1642,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         content: Text(_lang(
           'الملف غير صالح أو فيه بيانات غير مدعومة: ',
           'Invalid or unsupported backup data: ',
-        ) + '${error.message}'),
+        ) + error.message.toString()),
       ));
     } catch (_) {
       if (!mounted) return;
