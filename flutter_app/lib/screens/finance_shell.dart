@@ -2392,40 +2392,54 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       decoration: BoxDecoration(gradient: _pageGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-        toolbarHeight: 58,
-        leading: IconButton(
-          key: const Key('settings-action'),
-          tooltip: _selected == 4
-              ? _lang('الرئيسية', 'Home')
-              : _lang('الإعدادات', 'Settings'),
-          onPressed: () => _goTo(_selected == 4 ? 0 : 4),
-          icon: Icon(_selected == 4
-              ? Icons.arrow_back_ios_new_rounded
-              : Icons.settings_outlined),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 64,
+        titleSpacing: 10,
+        title: Row(
+          textDirection: TextDirection.ltr,
+          children: [
+            IconButton(
+              key: const Key('settings-action'),
+              tooltip: _selected == 4
+                  ? _lang('الرئيسية', 'Home')
+                  : _lang('الإعدادات', 'Settings'),
+              onPressed: () => _goTo(_selected == 4 ? 0 : 4),
+              icon: Icon(_selected == 4
+                  ? Icons.arrow_back_ios_new_rounded
+                  : Icons.settings_outlined),
+            ),
+            const SizedBox(width: 4),
+            Expanded(child: Text(
+              _selected == 4
+                  ? _lang('الإعدادات', 'Settings')
+                  : _lang('مرحبًا $_displayName', 'Hi $_displayName'),
+              key: const Key('personal-greeting'),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800, fontSize: 17),
+            )),
+            IconButton(
+              key: const Key('language-action'),
+              tooltip: 'Language / اللغة',
+              onPressed: widget.onToggleLanguage,
+              icon: Text(widget.isEnglish ? 'ع' : 'EN',
+                style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w800)),
+            ),
+            IconButton(
+              key: const Key('theme-action'),
+              tooltip: _lang('تغيير المظهر', 'Toggle theme'),
+              onPressed: widget.onToggleTheme,
+              icon: Icon(widget.isDark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined),
+            ),
+          ],
         ),
-        centerTitle: true,
-        title: Text(_selected == 4
-            ? _lang('الإعدادات', 'Settings')
-            : _lang('مرحبًا $_displayName', 'Hi $_displayName'),
-          key: const Key('personal-greeting'),
-          maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-        actions: [
-          IconButton(
-            key: const Key('language-action'),
-            tooltip: 'Language / اللغة',
-            onPressed: widget.onToggleLanguage,
-            icon: Text(widget.isEnglish ? 'ع' : 'EN',
-              style: const TextStyle(fontSize: 12,
-                fontWeight: FontWeight.w800))),
-          IconButton(
-            key: const Key('theme-action'),
-            onPressed: widget.onToggleTheme,
-            icon: Icon(widget.isDark
-              ? Icons.light_mode_outlined : Icons.dark_mode_outlined)),
-        ],
       ),
       body: SafeArea(
         child: Column(children: [
