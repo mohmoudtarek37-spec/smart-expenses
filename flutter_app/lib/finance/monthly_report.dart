@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'finance_models.dart';
+import 'currency_codes.dart';
 
 /// One month of transactions. Excluded rows remain visible, but never alter
 /// totals, matching report.js in the HTML version.
@@ -37,6 +38,16 @@ class MonthlyReportCopy {
   static String title(bool english) =>
       english ? 'Monthly transaction report' : 'تقرير المعاملات الشهري';
 
+  static String amountHeader(bool english, String currencyCode) {
+    final code = FinanceCurrency.normalize(currencyCode);
+    return english ? 'Amount ($code)' : 'المبلغ ($code)';
+  }
+
+  static String totalWithCurrency(num value, String currencyCode) {
+    final fmt = NumberFormat.decimalPattern('en')..maximumFractionDigits = 2;
+    return '${fmt.format(value)} ${FinanceCurrency.normalize(currencyCode)}';
+  }
+
   static String entryType(bool english, EntryType type) =>
       type == EntryType.deposit
           ? (english ? 'Income' : 'إيداع')
@@ -49,10 +60,12 @@ class MonthlyReportPdf {
   static const int _height = 1584;
 
   static Future<Uint8List> create(MonthlyReportData report,
-      {bool isEnglish = false}) async {
+      {bool isEnglish = false, String currencyCode = 'EGP'}) async {
     final document = pw.Document(compress: true);
+    final code = FinanceCurrency.normalize(currencyCode);
     for (var page = 0; page < report.pageCount; page++) {
-      final png = await _paintPage(report, page, isEnglish: isEnglish);
+      final png = await _paintPage(report, page,
+          isEnglish: isEnglish, currencyCode: code);
       final image = pw.MemoryImage(png);
       document.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -64,7 +77,7 @@ class MonthlyReportPdf {
   }
 
   static Future<Uint8List> _paintPage(MonthlyReportData report, int page,
-      {required bool isEnglish}) async {
+      {required bool isEnglish, required String currencyCode}) async {
     String tr(String ar, String en) => isEnglish ? en : ar;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -131,7 +144,8 @@ class MonthlyReportPdf {
     text(tr('التاريخ', 'Date'), 850, 309, 185, bold: true);
     text(tr('النوع', 'Type'), 670, 309, 140, bold: true);
     text(tr('المكان أو الوصف', 'Description'), 306, 309, 315, bold: true);
-    text(tr('المبلغ (جنيه)', 'Amount (EGP)'), 70, 309, 205, bold: true);
+    text(MonthlyReportCopy.amountHeader(isEnglish, currencyCode),
+        70, 309, 205, bold: true);
 
     final start = page * MonthlyReportData.rowsPerPage;
     final end = math.min(report.entries.length, start + MonthlyReportData.rowsPerPage);
@@ -161,11 +175,11 @@ class MonthlyReportPdf {
 
     if (page == report.pageCount - 1) {
       rectangle(65, 1414, 990, 124, const Color(0xFFEDF1F6));
-      text('${tr('إجمالي الإيداعات', 'Total income')}  ${amount(report.totals.deposit)}', 580, 1435,
+      text('${tr('إجمالي الإيداعات', 'Total income')}  ${MonthlyReportCopy.totalWithCurrency(report.totals.deposit, currencyCode)}', 580, 1435,
           450, size: 23, bold: true, color: green);
-      text('${tr('إجمالي السحب', 'Total expenses')}  ${amount(report.totals.withdrawal)}', 580, 1485,
+      text('${tr('إجمالي السحب', 'Total expenses')}  ${MonthlyReportCopy.totalWithCurrency(report.totals.withdrawal, currencyCode)}', 580, 1485,
           450, size: 23, bold: true, color: red);
-      text('${tr('المتبقي', 'Balance')}  ${amount(report.totals.remaining)}', 75, 1460,
+      text('${tr('المتبقي', 'Balance')}  ${MonthlyReportCopy.totalWithCurrency(report.totals.remaining, currencyCode)}', 75, 1460,
           465, size: 24, bold: true, right: false, color: dark);
     }
     text(isEnglish

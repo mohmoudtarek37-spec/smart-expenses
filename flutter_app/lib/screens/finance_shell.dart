@@ -16,6 +16,7 @@ import '../subscriptions/account_plan.dart';
 import 'account_profile_page.dart';
 import 'category_management_page.dart';
 import '../finance/monthly_report.dart';
+import '../finance/currency_codes.dart';
 import '../finance/installment_calendar.dart';
 import '../finance/due_notices.dart';
 import '../finance/sms_import.dart';
@@ -154,9 +155,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       widget.isEnglish ? english : arabic;
 
   String _money(num value) => _formatter.format(value);
-  static const currencyCodes = ['EGP','USD','EUR','AED','SAR','CAD','KWD','SEK','UAH','RUB'];
-  String get _currencyCode => currencyCodes.contains(_prefs['currency'])
-      ? _prefs['currency'] as String : 'EGP';
+  String get _currencyCode => FinanceCurrency.normalize(_prefs['currency']);
   String _currency(num value) => '${_money(value)} $_currencyCode';
 
   String get _displayName {
@@ -185,7 +184,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     final value = await showDialog<String>(context: context,
       builder: (context) => SimpleDialog(
         title: Text(_lang('اختر العملة', 'Choose currency')),
-        children: [for (final code in currencyCodes)
+        children: [for (final code in FinanceCurrency.codes)
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, code),
             child: Text(code),
@@ -572,7 +571,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     try {
       final report = MonthlyReportData(month: _month, allEntries: _entries);
       final bytes = await MonthlyReportPdf.create(report,
-          isEnglish: widget.isEnglish);
+          isEnglish: widget.isEnglish,
+          currencyCode: _currencyCode);
       if (!mounted) return;
       await Printing.sharePdf(bytes: bytes, filename: report.filename);
     } catch (_) {
