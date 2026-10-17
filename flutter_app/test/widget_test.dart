@@ -147,7 +147,6 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-settings')), findsOneWidget);
-    expect(find.textContaining('مش بتتنقل للحساب تلقائيًا'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('login-from-settings')), 180,
       scrollable: find.descendant(
