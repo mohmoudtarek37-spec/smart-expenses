@@ -1513,17 +1513,23 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
 
   Future<void> _restoreCloudIfLocalEmpty() async {
     if (!widget.cloudEnabled || _cloudBusy || !_editable ||
-        _entries.isNotEmpty || _plans.isNotEmpty ||
-        widget.store is! LedgerStore) {
+        widget.store is! LedgerStore ||
+        !CloudRestorePolicy.mayRestoreOnLaunch(
+          local: _currentLedger, savedCloudRevision: _cloudRevision,
+        )) {
       return;
     }
     setState(() => _cloudBusy = true);
     try {
       final remote = await CloudFinanceSync(Supabase.instance.client).fetch();
-      if (!mounted || remote == null || _entries.isNotEmpty ||
-          _plans.isNotEmpty) {
+      if (!mounted || remote == null ||
+          !CloudRestorePolicy.mayRestoreOnLaunch(
+            local: _currentLedger, savedCloudRevision: _cloudRevision,
+          )) {
         return;
       }
+      // Don't trigger a replacement at all if the server is also empty.
+      if (CloudRestorePolicy.isEmpty(remote.ledger)) return;
       await _replaceLedgerLocally(remote.ledger);
       if (!mounted) return;
       await _rememberCloudRevision(remote.revision);
@@ -1629,8 +1635,14 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       final remote = await sync.fetch();
       if (!mounted) return;
       final local = _currentLedger;
-      final hasLocal = local.entries.isNotEmpty || local.installments.isNotEmpty;
+      final hasLocal = !CloudRestorePolicy.isEmpty(local);
       if (remote == null) {
+        if (_cloudRevision != null) {
+          _showCloudMessage('كانت فيه نسخة سحابية مرتبطة بالجهاز '
+              'لكن دلوقتي مش موجودة. وقفنا الرفع لحماية الحساب؛ '
+              'راجع السبب قبل إعادة إنشاء النسخة.');
+          return;
+        }
         if (!hasLocal) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('مفيش معاملات محلية أو سحابية للمزامنة.'),

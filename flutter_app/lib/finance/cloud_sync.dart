@@ -66,6 +66,23 @@ class LedgerContent {
       canonical(first) == canonical(second);
 }
 
+/// Restores cloud records automatically only on a genuinely untouched device.
+/// Empty entries can also mean a user intentionally deleted every transaction
+/// while offline; a saved revision MUST block automatic restore in that case.
+class CloudRestorePolicy {
+  static bool isEmpty(InstallmentLedger ledger) =>
+      ledger.entries.isEmpty &&
+      ledger.installments.isEmpty &&
+      ledger.customCategories.isEmpty &&
+      ledger.prefs.isEmpty &&
+      ledger.createdAt.isEmpty;
+
+  static bool mayRestoreOnLaunch({
+    required InstallmentLedger local,
+    required int? savedCloudRevision,
+  }) => savedCloudRevision == null && isEmpty(local);
+}
+
 class CloudFinanceSync {
   CloudFinanceSync(this.client);
 
