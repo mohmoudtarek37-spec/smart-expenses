@@ -144,8 +144,43 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       widget.isEnglish ? english : arabic;
 
   String _money(num value) => _formatter.format(value);
-  String _currency(num value) => widget.isEnglish
-      ? '${_money(value)} EGP' : '${_money(value)} ج.م';
+  static const currencyCodes = ['EGP','USD','EUR','AED','SAR','CAD','KWD','SEK','UAH','RUB'];
+  String get _currencyCode => currencyCodes.contains(_prefs['currency'])
+      ? _prefs['currency'] as String : 'EGP';
+  String _currency(num value) => '${_money(value)} $_currencyCode';
+
+  String get _displayName {
+    final profile = _prefs['profile'];
+    if (profile is Map && (profile['name']?.toString().trim() ?? '').isNotEmpty) {
+      return profile['name'].toString().trim();
+    }
+    final email = widget.accountEmail;
+    if (email != null && email.contains('@')) return email.split('@').first;
+    return _lang('ضيف', 'Guest');
+  }
+
+  Future<void> _selectCurrency() async {
+    if (!_editable) return;
+    final value = await showDialog<String>(context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(_lang('اختر العملة', 'Choose currency')),
+        children: [for (final code in currencyCodes)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, code),
+            child: Text(code),
+          ),
+        ],
+      ));
+    if (value == null || !mounted || !_editable || value == _currencyCode) return;
+    await _applyLedger(InstallmentLedger(
+      entries: _entries, installments: _plans,
+      customCategories: _customCategories,
+      prefs: {..._prefs, 'currency': value},
+      createdAt: _createdAt,
+    ), _lang('تم تغيير رمز العملة بدون تحويل المبالغ.',
+             'Currency label changed without converting amounts.'));
+  }
+
 
   String _monthDisplay(DateTime month) => widget.isEnglish
       ? DateFormat('MMMM yyyy', 'en').format(month) : monthTitle(month);
@@ -638,63 +673,24 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
 
   Widget _hero(MonthTotals totals) => InkWell(
     key: const Key('total-card'),
-    onTap: () => _goTo(1, filter: _Filter.deposit),
-    borderRadius: BorderRadius.circular(19),
+    onTap: () => _goTo(1, filter: _Filter.withdrawal),
     child: _panel(
-      background: widget.isDark
-          ? const Color(0xFF29281B)
-          : const Color(0xFFFFF9DB),
-      border: Border.all(color: widget.isDark
-          ? const Color(0xFF5A5125)
-          : const Color(0xFFF2E6AD)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(Icons.account_balance_wallet_outlined, color: _accent,
-                size: 20),
-            const SizedBox(width: 8),
-            Text(_lang('الإجمالي', 'Total income'), style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 12),
-          Text(_money(totals.deposit), key: const Key('total-deposit'),
-              textDirection: TextDirection.ltr,
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
-                  color: _ink)),
-          Text(_lang('جنيه • إجمالي إيداعات الشهر', 'EGP • total income this month'),
-              style: TextStyle(fontSize: 11, color: _mutedText)),
-          const SizedBox(height: 20),
-          Center(child: Column(children: [
-            Text(_lang('نسبة المصروفات', 'Spending ratio'), style: TextStyle(
-                fontSize: 12, color: _mutedText)),
-            const SizedBox(height: 9),
-            SizedBox(height: 112, width: 112,
-              child: Stack(fit: StackFit.expand, children: [
-                CircularProgressIndicator(
-                  value: totals.ringPercentage / 100,
-                  strokeWidth: 10,
-                  backgroundColor: _alt,
-                  color: _accent,
-                  strokeCap: StrokeCap.round,
-                ),
-                Center(child: Text(
-                  '${_money(totals.spendingPercentage)}%',
-                  textDirection: TextDirection.ltr,
-                  style: TextStyle(color: _ink, fontSize: 18,
-                      fontWeight: FontWeight.w800),
-                )),
-              ]),
-            ),
-            const SizedBox(height: 9),
-            Text(totals.deposit <= 0
-                ? _lang('أضف إيداعًا لعرض النسبة', 'Add income to see the ratio')
-                : totals.remaining < 0
-                    ? _lang('مصروفاتك تجاوزت الإيداعات', 'Expenses exceed your income')
-                    : _lang('من إجمالي الإيداعات', 'of total income'),
-                style: TextStyle(color: _mutedText, fontSize: 11)),
-          ])),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_lang('مصروفاتك', 'Your expenses'),
+          style: TextStyle(color: _mutedText, fontSize: 13)),
+        const SizedBox(height: 5),
+        Row(textDirection: TextDirection.ltr, children: [
+          Flexible(child: Text(_money(totals.withdrawal),
+            key: const Key('total-deposit'),
+            textDirection: TextDirection.ltr,
+            style: TextStyle(color: _ink,
+              fontSize: 30, fontWeight: FontWeight.w800))),
+          const SizedBox(width: 8),
+          Text(_currencyCode,
+            style: TextStyle(fontSize: 12, color: _mutedText)),
+        ]),
+      ]),
     ),
   );
 
@@ -705,7 +701,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     borderRadius: BorderRadius.circular(17),
     onTap: onTap,
     child: _panel(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -716,16 +712,16 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
               fontWeight: FontWeight.w700, fontSize: 12,
             ))),
           ]),
-          const SizedBox(height: 11),
+          const SizedBox(height: 5),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,
             child: Text(value, textDirection: TextDirection.ltr,
                 style: TextStyle(fontWeight: FontWeight.w800,
-                    fontSize: 19, color: color)),
+                    fontSize: 17, color: color)),
           ),
           const SizedBox(height: 4),
-          Text(_lang('جنيه', 'EGP'), style: TextStyle(fontSize: 10, color: _mutedText)),
+          Text(_currencyCode, style: TextStyle(fontSize: 10, color: _mutedText)),
         ],
       ),
     ),
@@ -883,15 +879,13 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
 
   Widget _home() {
     final totals = _summary.totals(_month);
-    final categories = _summary.categoryTotals(_month);
     final recent = _summary.recent(_month);
     return ListView(
       key: const Key('home-page'),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
         _hero(totals),
-        _dueNoticesPanel(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 7),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           _smallMetric(key: const Key('withdrawal-card'), title: _lang('السحب', 'Expenses'),
             value: _money(totals.withdrawal), icon: Icons.north_east,
@@ -908,23 +902,17 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             onTap: () => _goTo(1)),
         ]),
         _monthPicker(),
-        Align(alignment: Alignment.centerRight,
-          child: _action(_lang('تحميل تقرير PDF للشهر', 'Download monthly PDF'), Icons.download_outlined,
-              () => _exportMonthlyReport())),
-        _sectionTitle(_lang('المصروفات حسب التصنيف', 'Expenses by category'),
-            action: _lang('التفاصيل ←', 'Details →'), onTap: () => _goTo(3)),
-        _categoryList(categories, totals),
-        _sectionTitle(_lang('آخر المعاملات', 'Recent transactions'),
+        _dueNoticesPanel(),
+        OutlinedButton.icon(
+          key: const Key('category-expenses-action'),
+          onPressed: () => _goTo(3),
+          icon: const Icon(Icons.pie_chart_outline),
+          label: Text(_lang('المصروفات حسب التصنيف', 'Expenses by category')),
+        ),
+        _sectionTitle(_lang('المعاملات الأخيرة', 'Recent transactions'),
             action: _lang('عرض الكل ←', 'View all →'), onTap: () => _goTo(1)),
         _entryList(recent,
-            emptyMessage: _lang('أضف أول معاملة أو استورد رسالة SMS', 'Add a transaction or import SMS')),
-        const SizedBox(height: 13),
-        Wrap(spacing: 8, children: [
-          _action(_lang('استيراد رسائل SMS', 'Import SMS messages'), Icons.sms_outlined,
-              () => _importSmsFile()),
-          _action(_lang('الأقساط', 'Installments'), Icons.calendar_month_outlined,
-              () => _goTo(2)),
-        ]),
+            emptyMessage: _lang('أضف أول معاملة', 'Add your first transaction')),
       ],
     );
   }
@@ -2071,54 +2059,57 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
       const SizedBox(height: 14),
       _settingsHeading('الحساب', 'Account'),
+      _panel(child: ListTile(
+        key: const Key('profile-settings'),
+        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+        title: Text(_displayName),
+        subtitle: Text(_displayName),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(_lang('الخطة المجانية', 'Free plan'),
+            style: TextStyle(color: _mutedText, fontSize: 12)),
+          const SizedBox(width: 6),
+          const Icon(Icons.chevron_right),
+        ]),
+        onTap: _editable ? _openAccountProfile : null,
+      )),
+      const SizedBox(height: 18),
+      _settingsHeading('فلوسك', 'Your money'),
       _panel(child: Column(children: [
         ListTile(
-          key: const Key('profile-settings'),
-          leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-          title: Text((_prefs['profile'] is Map &&
-              ((_prefs['profile'] as Map)['name']?.toString() ?? '').isNotEmpty)
-              ? (_prefs['profile'] as Map)['name'].toString()
-              : _lang('اسم المستخدم', 'Username')),
-          subtitle: Text(widget.accountEmail ??
-              _lang('ملف الضيف على الموبايل', 'Guest profile on this device')),
+          key: const Key('currency-settings'),
+          leading: const Icon(Icons.currency_exchange),
+          title: Text(_lang('العملة', 'Currency')),
+          subtitle: Text(_currencyCode),
           trailing: const Icon(Icons.chevron_right),
-          onTap: _editable ? _openAccountProfile : null,
-        ),
-        if (widget.cloudEnabled)
-          ListTile(
-            key: const Key('account-status'),
-            leading: const Icon(Icons.verified_user_outlined),
-            title: Text(_lang('الحساب متصل', 'Connected account')),
-            subtitle: Text(widget.accountEmail ?? ''),
-          )
-        else
-          ListTile(
-            key: const Key('guest-account-status'),
-            leading: const Icon(Icons.person_outline),
-            title: Text(_lang('استخدام كضيف — بدون حساب',
-                'Guest mode — no account')),
-            subtitle: Text(_lang(
-              'المعاملات محفوظة على جهازك ومش بتتنقل للحساب تلقائيًا.',
-              'Transactions are stored on this device and are not '
-              'transferred to an account automatically.')),
-          ),
-        Divider(color: _line),
-        ListTile(
-          key: const Key('language-settings'),
-          leading: const Icon(Icons.language_outlined),
-          title: Text(_lang('اللغة', 'Language')),
-          subtitle: Text(widget.isEnglish ? 'English' : 'العربية'),
-          onTap: widget.onToggleLanguage,
+          onTap: _editable ? _selectCurrency : null,
         ),
         ListTile(
-          key: const Key('theme-settings'),
-          leading: const Icon(Icons.dark_mode_outlined),
-          title: Text(_lang('الوضع الداكن', 'Dark mode')),
-          trailing: Switch(value: widget.isDark,
-              onChanged: (_) => widget.onToggleTheme?.call()),
-          onTap: widget.onToggleTheme,
+          key: const Key('custom-categories'),
+          leading: const Icon(Icons.category_outlined),
+          title: Text(_lang('تخصيص الفئات', 'Customize categories')),
+          subtitle: Text(_lang('الفئات الأساسية والتصنيفات المضافة',
+              'Default and custom categories')),
+        ),
+        for (final category in _customCategories)
+          ListTile(title: Text(category),
+            trailing: IconButton(icon: const Icon(Icons.delete_outline),
+              onPressed: _editable ? () => _removeCustomCategory(category) : null)),
+        ListTile(
+          key: const Key('add-custom-category'),
+          leading: const Icon(Icons.add_circle_outline),
+          title: Text(_lang('إضافة تصنيف جديد', 'Add category')),
+          onTap: _editable ? _addCustomCategory : null,
         ),
       ])),
+      const SizedBox(height: 18),
+      _settingsHeading('التفضيلات والتنبيهات', 'Preferences & alerts'),
+      _panel(child: ListTile(
+        leading: const Icon(Icons.notifications_outlined),
+        title: Text(_lang('تنبيهات الأقساط', 'Installment alerts')),
+        subtitle: Text(_lang('مواعيد الاستحقاق وتقويم الهاتف',
+            'Due dates and phone calendar')),
+        onTap: () => _goTo(2),
+      )),
       const SizedBox(height: 18),
       _settingsHeading('البيانات', 'Data'),
       _panel(child: Column(children: [
@@ -2180,50 +2171,36 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         )),
       ],
       const SizedBox(height: 18),
-      _settingsHeading('الخدمات', 'Services'),
+      _settingsHeading('الدعم', 'Support'),
       _panel(child: Column(children: [
-        if (widget.cloudEnabled)
+        ListTile(
+          key: const Key('monthly-report-settings'),
+          leading: const Icon(Icons.picture_as_pdf_outlined),
+          title: Text(_lang('تقرير PDF الشهري', 'Monthly PDF report')),
+          onTap: _exportMonthlyReport,
+        ),
+        ListTile(
+          key: const Key('sms-import-settings'),
+          leading: const Icon(Icons.sms_outlined),
+          title: Text(_lang('استيراد رسائل SMS', 'Import SMS messages')),
+          onTap: _importSmsFile,
+        ),
+        if (widget.cloudEnabled) ...[
           ListTile(
             key: const Key('premium-settings'),
             leading: const Icon(Icons.workspace_premium_outlined),
             title: Text(_lang('حساباتي Premium', 'Hesabaty Premium')),
-            trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push<void>(
               MaterialPageRoute(builder: (_) => PremiumPage(
                 isEnglish: widget.isEnglish))),
           ),
-        if (widget.cloudEnabled) ...[
           ListTile(
             key: const Key('sync-cloud'),
             leading: const Icon(Icons.cloud_sync_outlined),
-            title: Text(_lang('مراجعة ومزامنة حسابي الآن',
-                'Review and sync account')),
-            subtitle: Text(_cloudQuotaLabel()),
+            title: Text(_lang('مزامنة الحساب', 'Sync account')),
             onTap: _editable ? _syncCloudNow : null,
           ),
-          if (_autoSyncStatus.isNotEmpty)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(_autoSyncStatus,
-                key: const Key('cloud-sync-status'),
-                style: const TextStyle(fontSize: 12))),
         ],
-        ListTile(
-          key: const Key('custom-categories'),
-          title: Text(_lang('التصنيفات المخصصة', 'Custom categories')),
-          subtitle: Text(_lang('إضافة التصنيفات الجديدة وإدارتها',
-              'Create and manage custom categories')),
-          leading: const Icon(Icons.category_outlined),
-        ),
-        for (final category in _customCategories)
-          ListTile(title: Text(category), trailing: IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _editable ? () => _removeCustomCategory(category) : null)),
-        ListTile(
-          key: const Key('add-custom-category'),
-          leading: const Icon(Icons.add_circle_outline),
-          title: Text(_lang('إضافة تصنيف جديد', 'Add custom category')),
-          onTap: _editable ? _addCustomCategory : null,
-        ),
         ListTile(
           key: const Key('privacy-policy-link'),
           leading: const Icon(Icons.privacy_tip_outlined),
@@ -2289,28 +2266,18 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       backgroundColor: _background,
       appBar: AppBar(
         backgroundColor: _background,
-        toolbarHeight: 75,
-        leadingWidth: 53,
-        leading: Padding(
-          padding: const EdgeInsetsDirectional.only(start: 12),
-          child: Center(child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset('branding/hesabaty_launcher.webp',
-                width: 38, height: 38, fit: BoxFit.contain,
-                semanticLabel: 'Hesabaty wallet logo'),
-          )),
+        toolbarHeight: 58,
+        leading: IconButton(
+          key: const Key('settings-action'),
+          tooltip: _lang('الإعدادات', 'Settings'),
+          onPressed: () => _goTo(4),
+          icon: const Icon(Icons.settings_outlined),
         ),
-        titleSpacing: 6,
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_lang('أهلًا بيك 👋', 'Welcome 👋'),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-            Text(_lang('فلوسك في مكان واحد', 'Your money in one place'),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: _mutedText)),
-          ],
-        ),
+        centerTitle: true,
+        title: Text(_lang('مرحبًا $_displayName', 'Hi $_displayName'),
+          key: const Key('personal-greeting'),
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
         actions: [
           IconButton(
             key: const Key('language-action'),
@@ -2318,21 +2285,12 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             onPressed: widget.onToggleLanguage,
             icon: Text(widget.isEnglish ? 'ع' : 'EN',
               style: const TextStyle(fontSize: 12,
-                  fontWeight: FontWeight.w800)),
-          ),
+                fontWeight: FontWeight.w800))),
           IconButton(
-            tooltip: _lang('تغيير المظهر', 'Toggle theme'),
+            key: const Key('theme-action'),
             onPressed: widget.onToggleTheme,
             icon: Icon(widget.isDark
-                ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-          ),
-          IconButton(
-            key: const Key('settings-action'),
-            tooltip: _lang('الإعدادات', 'Settings'),
-            onPressed: () => _goTo(4),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          const SizedBox(width: 6),
+              ? Icons.light_mode_outlined : Icons.dark_mode_outlined)),
         ],
       ),
       body: SafeArea(
