@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
@@ -870,19 +870,19 @@ class _FinanceShellState extends State<FinanceShell> {
       final filename = 'hesabaty-backup-'
           '${date.year}-${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}.json';
-      final result = await FilePicker.saveFile(
-        dialogTitle: 'احفظ نسخة حساباتي الاحتياطية',
-        fileName: filename,
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        bytes: Uint8List.fromList(utf8.encode(data)),
-      );
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(
+          Uint8List.fromList(utf8.encode(data)),
+          mimeType: 'application/json',
+          name: filename,
+        )],
+        fileNameOverrides: [filename],
+      ));
       if (!mounted) return;
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('تم حفظ ملف النسخة الاحتياطية. احتفظ بيه في مكان آمن.'),
-        ));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('اختار من قائمة المشاركة مكان حفظ ملف JSON. '
+            'احتفظ بالملف في مكان آمن.'),
+      ));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -894,21 +894,14 @@ class _FinanceShellState extends State<FinanceShell> {
   Future<void> _importBackup() async {
     if (!_editable || widget.store is! LedgerStore) return;
     try {
-      final picked = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        allowMultiple: false,
-        withData: true,
+      const jsonType = XTypeGroup(
+        label: 'Hesabaty JSON',
+        extensions: ['json'],
+        mimeTypes: ['application/json'],
       );
-      if (picked == null || !mounted || !_editable) return;
-      final file = picked.files.single;
-      if (file.size > BackupCodec.maxBackupBytes) {
-        throw const FormatException('Backup file larger than 35 MB');
-      }
-      final content = file.bytes ??
-          (file.path != null
-              ? await File(file.path!).readAsBytes()
-              : throw const FormatException('Backup file cannot be read'));
+      final file = await openFile(acceptedTypeGroups: [jsonType]);
+      if (file == null || !mounted || !_editable) return;
+      final content = await file.readAsBytes();
       if (content.length > BackupCodec.maxBackupBytes) {
         throw const FormatException('Backup file larger than 35 MB');
       }
