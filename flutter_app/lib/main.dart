@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
+import 'auth/auth_feedback.dart';
 import 'finance/transaction_store.dart';
 
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
@@ -148,6 +150,7 @@ class _SignInPageState extends State<_SignInPage> {
   final _password = TextEditingController();
   bool _busy = false;
   String _status = '';
+  bool _statusIsError = false;
 
   @override
   void dispose() {
@@ -159,33 +162,94 @@ class _SignInPageState extends State<_SignInPage> {
   Future<void> _authenticate({required bool register}) async {
     if (_busy) return;
     final email = _email.text.trim();
-    if (!email.contains('@') || _password.text.length < 6) {
-      setState(() => _status = 'اكتب بريد إلكتروني صحيح وكلمة مرور 6 حروف على الأقل.');
+    final password = _password.text;
+    if (!AuthFeedback.validEmail(email)) {
+      setState(() {
+        _statusIsError = true;
+        _status = 'راجع البريد الإلكتروني: لازم يكون بالشكل name@example.com';
+      });
+      return;
+    }
+    if (password.length < 6) {
+      setState(() {
+        _statusIsError = true;
+        _status = 'كلمة المرور لازم تكون 6 حروف على الأقل '
+            '(والأفضل 8 حروف أو أكتر).';
+      });
       return;
     }
     setState(() {
       _busy = true;
-      _status = '';
+      _statusIsError = false;
+      _status = register
+          ? 'جاري إرسال طلب إنشاء الحساب للسيرفر...'
+          : 'جاري تسجيل الدخول...';
     });
     try {
       final auth = Supabase.instance.client.auth;
       if (register) {
         final result = await auth.signUp(
           email: email,
-          password: _password.text,
-        );
+          password: password,
+        ).timeout(const Duration(seconds: 25));
         if (!mounted) return;
-        setState(() => _status = result.session == null
-            ? 'راجع إيميلك لتأكيد الحساب، وبعدها سجل دخول.'
-            : 'تم إنشاء الحساب.');
+        if (result.user == null) {
+          setState(() {
+            _statusIsError = true;
+            _status = 'السيرفر ما رجّعش تأكيد إنشاء الحساب. '
+                'متعيدش التسجيل بنفس البيانات قبل ما تراجع بريدك.';
+          });
+          return;
+        }
+        setState(() {
+          _statusIsError = false;
+          _status = result.session == null
+              ? 'طلب إنشاء الحساب اتقبل. افتح إيميلك واضغط على رابط '
+                  'التأكيد، وشوف Spam لو مش لاقي الرسالة، '
+                  'وبعدها ارجع وسجل دخول.'
+              : 'تم إنشاء الحساب وتسجيل الدخول بنجاح.';
+        });
       } else {
-        await auth.signInWithPassword(email: email, password: _password.text);
+        await auth.signInWithPassword(
+          email: email, password: password,
+        ).timeout(const Duration(seconds: 25));
+        if (mounted) {
+          setState(() {
+            _statusIsError = false;
+            _status = 'تم تسجيل الدخول بنجاح.';
+          });
+        }
+      }
+    } on TimeoutException {
+      if (mounted) {
+        setState(() {
+          _statusIsError = true;
+          _status = 'السيرفر اتأخر في الرد. ممكن يكون الطلب وصل؛ '
+              'راجع إيميلك قبل ما تعيد المحاولة، '
+              'واتأكد من اتصال الإنترنت.';
+        });
+      }
+    } on SocketException {
+      if (mounted) {
+        setState(() {
+          _statusIsError = true;
+          _status = 'التطبيق مش قادر يوصل لسيرفر حساباتي. '
+              'راجع الإنترنت وجرب شبكة تانية.';
+        });
       }
     } on AuthException catch (error) {
-      if (mounted) setState(() => _status = error.message);
-    } catch (_) {
       if (mounted) {
-        setState(() => _status = 'تعذر إتمام العملية. تحقق من الإنترنت وحاول مرة أخرى.');
+        setState(() {
+          _statusIsError = true;
+          _status = AuthFeedback.serverError(error.message);
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _statusIsError = true;
+          _status = AuthFeedback.serverError(error.toString());
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -213,6 +277,7 @@ class _SignInPageState extends State<_SignInPage> {
                     textAlign: TextAlign.center),
                 const SizedBox(height: 30),
                 TextField(
+                  key: const Key('auth-email'),
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
@@ -221,6 +286,7 @@ class _SignInPageState extends State<_SignInPage> {
                 ),
                 const SizedBox(height: 14),
                 TextField(
+                  key: const Key('auth-password'),
                   controller: _password,
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
@@ -233,6 +299,7 @@ class _SignInPageState extends State<_SignInPage> {
                   child: const Text('تسجيل الدخول'),
                 ),
                 OutlinedButton(
+                  key: const Key('create-account'),
                   onPressed: _busy ? null : () => _authenticate(register: true),
                   child: const Text('إنشاء حساب جديد'),
                 ),
@@ -245,9 +312,28 @@ class _SignInPageState extends State<_SignInPage> {
                 ),
                 if (_busy) const LinearProgressIndicator(),
                 if (_status.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(_status, textAlign: TextAlign.center),
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      key: const Key('auth-status'),
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _statusIsError
+                            ? Theme.of(context).colorScheme.errorContainer
+                            : Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _status,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _statusIsError
+                              ? Theme.of(context).colorScheme.onErrorContainer
+                              : Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
                   ),
               ],
             ),
