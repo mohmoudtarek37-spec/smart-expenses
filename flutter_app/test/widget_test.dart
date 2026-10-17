@@ -163,6 +163,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.ledger.installments, hasLength(1));
     expect(store.ledger.installments.single.amount, 250);
+    await tester.scrollUntilVisible(
+      find.text('✓ تسجيل الدفع'), 180,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('installments-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('✓ تسجيل الدفع'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pay-new-withdrawal')));
