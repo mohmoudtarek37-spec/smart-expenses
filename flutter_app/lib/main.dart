@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'screens/finance_shell.dart';
+
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
 const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-const _accent = Color(0xFFFFE324);
-const _background = Color(0xFF101216);
-const _surface = Color(0xFF1B1F26);
+const _accent = Color(0xFFD4A600);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,10 +22,19 @@ Future<void> main() async {
   runApp(const HesabatyApp(backendConfigured: configured));
 }
 
-class HesabatyApp extends StatelessWidget {
+class HesabatyApp extends StatefulWidget {
   const HesabatyApp({super.key, this.backendConfigured = false});
 
   final bool backendConfigured;
+
+  @override
+  State<HesabatyApp> createState() => _HesabatyAppState();
+}
+
+class _HesabatyAppState extends State<HesabatyApp> {
+  bool _isDark = false;
+
+  void _toggleTheme() => setState(() => _isDark = !_isDark);
 
   @override
   Widget build(BuildContext context) {
@@ -39,52 +50,78 @@ class HesabatyApp extends StatelessWidget {
       ],
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: _background,
-        colorScheme: const ColorScheme.dark(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: Colors.white,
+        colorScheme: const ColorScheme.light(
           primary: _accent,
-          secondary: _accent,
-          surface: _surface,
-        ),
-        cardTheme: const CardThemeData(
-          color: _surface,
-          margin: EdgeInsets.only(bottom: 12),
-        ),
-        appBarTheme: const AppBarTheme(backgroundColor: _background),
-        navigationBarTheme: const NavigationBarThemeData(
-          backgroundColor: _surface,
-          indicatorColor: Color(0xFF5A5317),
+          surface: Colors.white,
         ),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0D0E14),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFFFE55D),
+          surface: Color(0xFF1B1C26),
+        ),
+      ),
+      themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       home: Directionality(
         textDirection: TextDirection.rtl,
-        child: backendConfigured ? const _AuthGate() : const _PreviewHome(),
+        child: widget.backendConfigured
+            ? _AuthGate(
+                isDark: _isDark,
+                onToggleTheme: _toggleTheme,
+              )
+            : FinanceShell(
+                isDark: _isDark,
+                onToggleTheme: _toggleTheme,
+              ),
       ),
     );
   }
 }
 
 class _AuthGate extends StatefulWidget {
-  const _AuthGate();
+  const _AuthGate({required this.isDark, required this.onToggleTheme});
+
+  final bool isDark;
+  final VoidCallback onToggleTheme;
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends State<_AuthGate> {
+  late final StreamSubscription<AuthState> _subscription;
+
   @override
   void initState() {
     super.initState();
-    Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+    _subscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Supabase.instance.client.auth.currentUser == null
         ? const _SignInPage()
-        : const _PreviewHome();
+        : FinanceShell(
+            isDark: widget.isDark,
+            onToggleTheme: widget.onToggleTheme,
+            onSignOut: () {
+              Supabase.instance.client.auth.signOut();
+            },
+          );
   }
 }
 
@@ -210,105 +247,3 @@ class _SignInPageState extends State<_SignInPage> {
   }
 }
 
-class _PreviewHome extends StatefulWidget {
-  const _PreviewHome();
-
-  @override
-  State<_PreviewHome> createState() => _PreviewHomeState();
-}
-
-class _PreviewHomeState extends State<_PreviewHome> {
-  int _selected = 0;
-  static const _titles = ['الرئيسية', 'المعاملات', 'الأقساط', 'التحليلات', 'الإعدادات'];
-  static const _icons = [
-    Icons.home_outlined,
-    Icons.receipt_long_outlined,
-    Icons.calendar_month_outlined,
-    Icons.bar_chart_outlined,
-    Icons.settings_outlined,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('حساباتي'),
-        actions: [
-          if (_backendUrl.isNotEmpty && _publishableKey.isNotEmpty &&
-              Supabase.instance.client.auth.currentUser != null)
-            IconButton(
-              onPressed: () => Supabase.instance.client.auth.signOut(),
-              tooltip: 'تسجيل الخروج',
-              icon: const Icon(Icons.logout),
-            ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: ListView(
-          children: [
-            Text(_titles[_selected], style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            if (_selected == 0) ...[
-              const _Metric(title: 'الإجمالي', value: '—'),
-              const _Metric(title: 'المصروفات', value: '—'),
-              const _Metric(title: 'الإيداعات', value: '—'),
-              const _Metric(title: 'المتبقي', value: '—'),
-            ],
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Icon(Icons.construction_outlined, color: _accent, size: 38),
-                    SizedBox(height: 12),
-                    Text('النسخة الأساسية من حساباتي 2.0',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text(
-                      'الشاشات دي للتأكد من تشغيل Flutter على أندرويد وآيفون. '
-                      'لسه بننقل وظائف المصروفات والأقساط الحالية خطوة بخطوة. '
-                      'مفيش بيانات حقيقية هتتمسح أو تتغيّر.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selected,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (value) => setState(() => _selected = value),
-        destinations: List.generate(_titles.length,
-          (index) => NavigationDestination(
-            icon: Icon(_icons[index]),
-            label: _titles[index],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({required this.title, required this.value});
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
-        ],
-      ),
-    ),
-  );
-}
