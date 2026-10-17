@@ -219,10 +219,27 @@ class InstallmentLedger {
   const InstallmentLedger({
     required this.entries,
     required this.installments,
+    this.customCategories = const [],
+    this.prefs = const {},
+    this.createdAt = '',
   });
 
   final List<FinanceEntry> entries;
   final List<InstallmentPlan> installments;
+  final List<String> customCategories;
+  final Map<String, dynamic> prefs;
+  final String createdAt;
+
+  InstallmentLedger withCollections({
+    required List<FinanceEntry> entries,
+    required List<InstallmentPlan> installments,
+  }) => InstallmentLedger(
+    entries: entries,
+    installments: installments,
+    customCategories: customCategories,
+    prefs: prefs,
+    createdAt: createdAt,
+  );
 
   InstallmentLedger withPlan(InstallmentPlan plan) {
     plan.validate();
@@ -233,12 +250,12 @@ class InstallmentLedger {
     } else {
       updated[index] = plan;
     }
-    return InstallmentLedger(entries: entries, installments: updated);
+    return withCollections(entries: entries, installments: updated);
   }
 
   /// Removing a plan does not delete paid withdrawal records. Detach the
   /// old references so those preserved transactions can be edited normally.
-  InstallmentLedger withoutPlan(String id) => InstallmentLedger(
+  InstallmentLedger withoutPlan(String id) => withCollections(
     entries: entries.map((entry) => entry.linkedInstallment == id
         ? entry.copyWith(linkedInstallment: '', installmentCreated: false)
         : entry).toList(),
@@ -291,7 +308,7 @@ class InstallmentLedger {
       InstallmentPayment(month: month, transactionId: txId, date: paidOn)];
     final updatedPlans = List<InstallmentPlan>.from(installments);
     updatedPlans[index] = plan.copyWith(payments: payments);
-    return InstallmentLedger(entries: updatedEntries, installments: updatedPlans);
+    return withCollections(entries: updatedEntries, installments: updatedPlans);
   }
 
   InstallmentLedger undoPayment({
@@ -315,6 +332,6 @@ class InstallmentLedger {
         ));
       }
     }
-    return InstallmentLedger(entries: updatedEntries, installments: updatedPlans);
+    return withCollections(entries: updatedEntries, installments: updatedPlans);
   }
 }
