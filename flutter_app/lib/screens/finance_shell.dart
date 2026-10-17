@@ -738,39 +738,6 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         ])),
       ));
 
-  Widget _categoryList(List<MapEntry<String, double>> categories,
-      MonthTotals totals) {
-    if (categories.isEmpty) {
-      return _empty(_lang('لحد دلوقتي مفيش مصروفات في الشهر ده', 'No expenses recorded this month'),
-          Icons.bar_chart_outlined);
-    }
-    return _panel(child: Column(
-      children: categories.take(6).map((category) =>
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Column(children: [
-            Row(children: [
-              Expanded(child: Text(_categoryName(category.key),
-                  style: const TextStyle(fontSize: 13,
-                      fontWeight: FontWeight.w700))),
-              Text(_currency(category.value), style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w700)),
-            ]),
-            const SizedBox(height: 7),
-            LinearProgressIndicator(
-              value: totals.withdrawal <= 0 ? 0 :
-                  (category.value / totals.withdrawal).clamp(0, 1),
-              minHeight: 6,
-              backgroundColor: _alt,
-              color: _accent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ]),
-        ),
-      ).toList(),
-    ));
-  }
-
   Widget _entryRow(FinanceEntry entry) {
     final deposit = entry.type == EntryType.deposit;
     final icon = deposit ? Icons.south_west : Icons.north_east;
@@ -2201,6 +2168,15 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             onTap: _editable ? _syncCloudNow : null,
           ),
         ],
+        if (_autoSyncStatus.isNotEmpty)
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(_autoSyncStatus,
+              key: const Key('cloud-sync-status'),
+              style: const TextStyle(fontSize: 12))),
+        if (widget.cloudEnabled)
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(_cloudQuotaLabel(),
+              style: const TextStyle(fontSize: 12))),
         ListTile(
           key: const Key('privacy-policy-link'),
           leading: const Icon(Icons.privacy_tip_outlined),
