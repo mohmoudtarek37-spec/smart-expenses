@@ -42,7 +42,7 @@ class _FinanceShellState extends State<FinanceShell> {
   final _search = TextEditingController();
   late DateTime _month;
   late List<FinanceEntry> _entries;
-  List<InstallmentPlan> _plans = []
+  List<InstallmentPlan> _plans = [];
   bool _loading = false;
   bool _saving = false;
   String? _loadError;
