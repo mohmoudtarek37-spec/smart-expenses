@@ -54,6 +54,7 @@ jobs:
       - name: Build signed AAB
         run: >-
           flutter build appbundle --release --no-pub
+          --dart-define=REQUIRE_ACCOUNT=true
           --dart-define=SUPABASE_URL=https://uusnulmlygtpgwecyuvc.supabase.co
           --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_ZYP1VZE40T35FIJh0w5hmg_ygnHgPgC
       - name: Confirm signed bundle exists

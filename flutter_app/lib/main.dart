@@ -12,6 +12,8 @@ import 'finance/transaction_store.dart';
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
 const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 const _accent = Color(0xFFD4A600);
+const _requireAccount = bool.fromEnvironment('REQUIRE_ACCOUNT',
+    defaultValue: false);
 const _mobileAuthCallback = 'io.github.mohmoudtarek37spec.hesabaty://auth-callback';
 
 Future<void> main() async {
@@ -174,6 +176,9 @@ class _AuthGateState extends State<_AuthGate> {
     final signedIn = user != null;
     // Stable keys force FinanceShell to unload account-specific records and
     // reopen the correct encrypted store whenever the user changes.
+    if (_requireAccount && !signedIn) {
+      return const _SignInPage(allowGuest: false);
+    }
     return FinanceShell(
       key: ValueKey(signedIn ? 'user_${user.id}' : 'guest-shell'),
       store: signedIn
@@ -190,7 +195,9 @@ class _AuthGateState extends State<_AuthGate> {
 }
 
 class _SignInPage extends StatefulWidget {
-  const _SignInPage();
+  const _SignInPage({this.allowGuest = true});
+
+  final bool allowGuest;
 
   @override
   State<_SignInPage> createState() => _SignInPageState();
@@ -277,13 +284,13 @@ class _SignInPageState extends State<_SignInPage> {
               : 'تم إنشاء الحساب وتسجيل الدخول بنجاح.';
         });
         if (result.session != null && mounted) {
-          Navigator.of(context).pop();
+          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
         }
       } else {
         await auth.signInWithPassword(
           email: email, password: password,
         ).timeout(const Duration(seconds: 25));
-        if (mounted) {
+        if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
       }
@@ -471,12 +478,12 @@ class _SignInPageState extends State<_SignInPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('الحساب والتسجيل'),
-        leading: IconButton(
+        leading: widget.allowGuest ? IconButton(
           key: const Key('close-auth'),
           tooltip: 'الرجوع للتطبيق',
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
-        ),
+        ) : null,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -492,8 +499,9 @@ class _SignInPageState extends State<_SignInPage> {
                 Text('حساباتي', textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineLarge),
                 const SizedBox(height: 8),
-                const Text('التسجيل اختياري. استخدم حساباتي كضيف عادي، '
-                    'وسجّل لو حبيت تستخدم المزامنة بين الأجهزة.',
+                Text(widget.allowGuest
+                    ? 'التسجيل اختياري في نسخة المعاينة. بيانات الضيف على الجهاز.'
+                    : 'أنشئ حساب أو سجّل الدخول لاستخدام حساباتي وحفظ بياناتك بأمان.',
                     textAlign: TextAlign.center),
                 if (_status.isNotEmpty)
                   Semantics(
@@ -574,7 +582,7 @@ class _SignInPageState extends State<_SignInPage> {
                 ),
                 if (_busy) const LinearProgressIndicator(),
                 const SizedBox(height: 15),
-                TextButton.icon(
+                if (widget.allowGuest) TextButton.icon(
                   key: const Key('continue-as-guest'),
                   onPressed: _busy ? null : () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back),
