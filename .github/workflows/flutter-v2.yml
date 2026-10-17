@@ -32,6 +32,11 @@ jobs:
         run: flutter create --project-name hesabaty --org io.github.mohmoudtarek37spec --platforms=android,ios .
       - name: Ensure Android INTERNET permission in main manifest
         run: dart tool/ensure_android_internet.dart
+      - name: Install Hesabaty launcher icon
+        run: |
+          python3 -m venv /tmp/hesabaty-icon-venv
+          /tmp/hesabaty-icon-venv/bin/pip -q install 'Pillow>=10,<13'
+          /tmp/hesabaty-icon-venv/bin/python tool/install_launcher_icon.py
       - name: Resolve dependencies
         run: flutter pub get
       - name: Static analysis

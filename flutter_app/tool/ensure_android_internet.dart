@@ -44,6 +44,8 @@ void main() {
     source = source.replaceFirstMapped(activity,
         (m) => (m.group(0) ?? '') + '\n' + filter);
   }
+  source = source.replaceAll('android:label="hesabaty"',
+      'android:label="Hesabaty"');
   manifest.writeAsStringSync(source);
   stdout.writeln('Android INTERNET permission and OAuth callback verified.');
 }

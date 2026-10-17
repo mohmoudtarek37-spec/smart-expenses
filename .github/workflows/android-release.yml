@@ -40,6 +40,11 @@ jobs:
         run: flutter create --project-name hesabaty --org io.github.mohmoudtarek37spec --platforms=android .
       - name: Configure Android connectivity and callback
         run: dart tool/ensure_android_internet.dart
+      - name: Install Hesabaty launcher icon
+        run: |
+          python3 -m venv /tmp/hesabaty-icon-venv
+          /tmp/hesabaty-icon-venv/bin/pip -q install 'Pillow>=10,<13'
+          /tmp/hesabaty-icon-venv/bin/python tool/install_launcher_icon.py
       - name: Prepare signed release
         shell: bash
         run: |
