@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/backup_codec.dart';
+import '../finance/analytics_models.dart';
 import '../finance/cloud_sync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../finance/finance_models.dart';
@@ -838,33 +839,226 @@ class _FinanceShellState extends State<FinanceShell> {
     ));
   }
 
+  /// Mirrors the HTML v1.5 Analytics page, including its six-month chart,
+  /// percentage-change edge cases, complete category list and key indicators.
   Widget _analytics() {
-    final totals = _summary.totals(_month);
+    final analysis = AnalyticsSummary(
+      summary: _summary,
+      selectedMonth: _month,
+      today: DateTime.now(),
+    );
+    final comparison = analysis.comparison;
+    final totals = analysis.current;
     return ListView(
       key: const Key('analytics-page'),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
-        const Text('التحليلات', style: TextStyle(fontSize: 23,
-            fontWeight: FontWeight.w800)),
+        const Text('التحليلات', style: TextStyle(
+          fontSize: 23, fontWeight: FontWeight.w800,
+        )),
+        Text('اعرف فلوسك راحت فين وقارن بين الشهور',
+            style: TextStyle(color: _mutedText, fontSize: 12)),
         _monthPicker(),
+        _sectionTitle('حركة آخر 6 شهور'),
+        _panel(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sixMonthChart(analysis),
+            const SizedBox(height: 14),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _analyticsLegend('الإيداع', _accent),
+              const SizedBox(width: 20),
+              _analyticsLegend('السحب', _red),
+            ]),
+          ],
+        )),
+        _sectionTitle('المقارنة الشهرية'),
+        _panel(child: Column(
+          children: [
+            _analyticsRow('سحب الشهر الحالي',
+                _currency(comparison.current.withdrawal),
+                valueColor: _red),
+            Divider(color: _line),
+            _analyticsRow('سحب الشهر السابق',
+                _currency(comparison.previous.withdrawal)),
+            Divider(color: _line),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                comparison.describe(_money),
+                key: const Key('expense-comparison'),
+                style: TextStyle(
+                  color: _mutedText, height: 1.8, fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        )),
+        _sectionTitle('توزيع المصروفات'),
+        if (analysis.categories.isEmpty)
+          _empty('مفيش مصروفات للتحليل في الشهر ده',
+              Icons.trending_down_outlined)
+        else
+          _panel(child: Column(
+            children: [
+              for (final category in analysis.categories) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(children: [
+                    Row(children: [
+                      Expanded(child: Text(category.key,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700))),
+                      Text(_currency(category.value),
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700)),
+                    ]),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      key: ValueKey('expense-category-${category.key}'),
+                      value: totals.withdrawal > 0
+                          ? (category.value / totals.withdrawal).clamp(0, 1)
+                          : 0,
+                      minHeight: 7,
+                      backgroundColor: _alt,
+                      color: _red,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ]),
+                ),
+                if (category != analysis.categories.last)
+                  Divider(height: 1, color: _line),
+              ],
+            ],
+          )),
+        _sectionTitle('مؤشرات الشهر'),
         _panel(child: Column(children: [
-          _analyticsRow('الإيداعات', _currency(totals.deposit)),
+          _analyticsRow(
+            'نسبة المصروفات من الإيداعات',
+            analysis.spendingShare == null
+                ? '—'
+                : '${_money(analysis.spendingShare!)}%',
+            key: const Key('analytics-spending-share'),
+          ),
           Divider(color: _line),
-          _analyticsRow('المصروفات', _currency(totals.withdrawal)),
+          _analyticsRow(
+            'متبقي الشهر', _currency(totals.remaining),
+            valueColor: totals.remaining < 0 ? _red : _green,
+          ),
           Divider(color: _line),
-          _analyticsRow('المتبقي', _currency(totals.remaining)),
+          _analyticsRow(
+            'عدد العمليات المسجلة', '${totals.transactionCount}',
+            key: const Key('analytics-transaction-count'),
+          ),
         ])),
-        _sectionTitle('المصروفات حسب التصنيف'),
-        _categoryList(_summary.categoryTotals(_month), totals),
+        const SizedBox(height: 22),
       ],
     );
   }
 
-  Widget _analyticsRow(String name, String value) =>
-      Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+  Widget _analyticsLegend(String label, Color color) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 11, height: 11,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(fontSize: 11, color: _mutedText)),
+      ]);
+
+  Widget _sixMonthChart(AnalyticsSummary analysis) {
+    final maxValue = analysis.maxChartValue;
+    final monthly = analysis.lastSixMonths;
+    return SizedBox(
+      key: const Key('six-month-chart'),
+      height: 162,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < monthly.length; index++)
+            Expanded(child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    height: 132,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Flexible(child: _analyticsBar(
+                          key: Key('month-$index-deposit'),
+                          value: monthly[index].totals.deposit,
+                          maxValue: maxValue,
+                          color: _accent,
+                          month: monthly[index].month,
+                          title: 'الإيداع',
+                        )),
+                        const SizedBox(width: 3),
+                        Flexible(child: _analyticsBar(
+                          key: Key('month-$index-withdrawal'),
+                          value: monthly[index].totals.withdrawal,
+                          maxValue: maxValue,
+                          color: _red,
+                          month: monthly[index].month,
+                          title: 'السحب',
+                        )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Text(arabicMonths[monthly[index].month.month - 1]
+                          .substring(0, 3),
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: TextStyle(
+                          fontSize: 10, color: _mutedText)),
+                ],
+              ),
+            )),
+        ],
+      ),
+    );
+  }
+
+  Widget _analyticsBar({
+    required Key key,
+    required double value,
+    required double maxValue,
+    required Color color,
+    required DateTime month,
+    required String title,
+  }) {
+    final scaled = value <= 0
+        ? 2.0
+        : (value / maxValue * 128).clamp(2.0, 128.0).toDouble();
+    return Tooltip(
+      message: '$title ${monthTitle(month)}: ${_currency(value)}',
+      child: Container(
+        key: key,
+        width: 16,
+        height: scaled,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(6)),
+        ),
+      ),
+    );
+  }
+
+  Widget _analyticsRow(String name, String value,
+      {Color? valueColor, Key? key}) =>
+      Padding(
+        key: key,
+        padding: const EdgeInsets.symmetric(vertical: 7),
         child: Row(children: [
-          Expanded(child: Text(name)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+          Expanded(child: Text(name,
+              style: TextStyle(color: _mutedText, fontSize: 12))),
+          const SizedBox(width: 10),
+          Text(value, style: TextStyle(
+              color: valueColor ?? _ink,
+              fontWeight: FontWeight.w800, fontSize: 13)),
         ]),
       );
 
