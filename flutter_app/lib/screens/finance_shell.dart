@@ -948,7 +948,7 @@ class _FinanceShellState extends State<FinanceShell> {
       try {
         final store = widget.store! as LedgerStore;
         if (store is BackupRestorableStore) {
-          await store.replaceFromBackup(preview.ledger);
+          await (store as BackupRestorableStore).replaceFromBackup(preview.ledger);
         } else {
           await store.saveLedger(preview.ledger);
         }
