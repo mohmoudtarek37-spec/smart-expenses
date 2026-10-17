@@ -28,8 +28,10 @@ class _PremiumPageState extends State<PremiumPage> {
     super.initState();
     _purchaseSub = _billing.purchaseStream.listen(_onPurchases,
         onError: (_) {
-          if (mounted) setState(() => _status =
+          if (mounted) {
+          setState(() => _status =
               'تعذر الاتصال بمتجر Google Play. جرّب مرة تانية.');
+        }
         });
     _initialize();
   }
@@ -69,9 +71,9 @@ class _PremiumPageState extends State<PremiumPage> {
         setState(() => _status = 'Google Play Billing مش متاح على الجهاز.');
         return;
       }
-      final response = await _billing.queryProductDetails({productId});
+      final productsResponse = await _billing.queryProductDetails({productId});
       if (!mounted) return;
-      if (response.productDetails.isEmpty) {
+      if (productsResponse.productDetails.isEmpty) {
         setState(() => _status =
             'منتج Premium مش متاح على Google Play للحساب ده.');
         return;
@@ -79,14 +81,18 @@ class _PremiumPageState extends State<PremiumPage> {
       setState(() {
         _backendReady = true;
         _storeReady = true;
-        _product = response.productDetails.first;
+        _product = productsResponse.productDetails.first;
         _status = 'الاشتراك متاح عبر Google Play.';
       });
     } catch (_) {
-      if (mounted) setState(() => _status =
+      if (mounted) {
+          setState(() => _status =
           'تعذر فحص المتجر والسيرفر. مش هنبدأ شراء غير قابل للتحقق.');
+        }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+          setState(() => _loading = false);
+        }
     }
   }
 
@@ -99,11 +105,15 @@ class _PremiumPageState extends State<PremiumPage> {
       final started = await _billing.buyNonConsumable(
           purchaseParam: PurchaseParam(productDetails: _product!));
       if (!mounted) return;
-      if (!started) setState(() => _status =
+      if (!started) {
+          setState(() => _status =
           'متجر Google Play ما بدأش عملية الاشتراك.');
+        }
     } catch (_) {
-      if (mounted) setState(() => _status =
+      if (mounted) {
+          setState(() => _status =
           'تعذر بدء الاشتراك. لم يتم تفعيل Premium.');
+        }
     }
   }
 
@@ -111,10 +121,14 @@ class _PremiumPageState extends State<PremiumPage> {
     if (!_backendReady || !_storeReady) return;
     try {
       await _billing.restorePurchases();
-      if (mounted) setState(() => _status =
+      if (mounted) {
+          setState(() => _status =
           'هنراجع أي اشتراكات سابقة مع Google Play.');
+        }
     } catch (_) {
-      if (mounted) setState(() => _status = 'تعذرت استعادة مشتريات Google Play.');
+      if (mounted) {
+          setState(() => _status = 'تعذرت استعادة مشتريات Google Play.');
+        }
     }
   }
 
@@ -123,21 +137,29 @@ class _PremiumPageState extends State<PremiumPage> {
     for (final purchase in purchases) {
       if (purchase.productID != productId) continue;
       if (purchase.status == PurchaseStatus.pending) {
-        if (mounted) setState(() => _status =
+        if (mounted) {
+          setState(() => _status =
             'العملية لسه تحت المعالجة في Google Play.');
+        }
         continue;
       }
       if (purchase.status == PurchaseStatus.canceled) {
-        if (mounted) setState(() => _status = 'تم إلغاء عملية الشراء.');
+        if (mounted) {
+          setState(() => _status = 'تم إلغاء عملية الشراء.');
+        }
         continue;
       }
       if (purchase.status == PurchaseStatus.error) {
-        if (mounted) setState(() => _status =
+        if (mounted) {
+          setState(() => _status =
             'فشل الشراء في Google Play. لم يتم تفعيل Premium.');
+        }
         continue;
       }
       if (purchase.status != PurchaseStatus.purchased &&
-          purchase.status != PurchaseStatus.restored) continue;
+          purchase.status != PurchaseStatus.restored) {
+        continue;
+      }
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) continue;
       setState(() {
@@ -162,15 +184,21 @@ class _PremiumPageState extends State<PremiumPage> {
         }
         if (Supabase.instance.client.auth.currentUser?.id != userId) return;
         await _refreshEntitlement();
-        if (mounted) setState(() => _status =
+        if (mounted) {
+          setState(() => _status =
             _premium ? 'تم تأكيد اشتراك Premium على السيرفر.'
                 : 'تم التحقق لكن الاشتراك مش نشط حاليًا.');
+        }
       } catch (_) {
-        if (mounted) setState(() => _status =
+        if (mounted) {
+          setState(() => _status =
             'تعذر التحقق من الشراء. مش هنفعّل Premium قبل تأكيد Google. '
             'راجع الاتصال أو جرّب استعادة المشتريات.');
+        }
       } finally {
-        if (mounted) setState(() => _processing = false);
+        if (mounted) {
+          setState(() => _processing = false);
+        }
       }
     }
   }
