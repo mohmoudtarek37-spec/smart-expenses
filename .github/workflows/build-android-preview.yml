@@ -1,0 +1,73 @@
+name: Build Hesabaty Android Preview
+
+on:
+  push:
+    branches:
+      - android-preview
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Use JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 16 SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare web assets
+        run: npm run build
+
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Synchronize web assets
+        run: npx cap sync android
+
+      - name: Verify target SDK for 2026 Google Play
+        run: |
+          grep -E 'targetSdkVersion\s*=\s*36|targetSdkVersion\s+36' android/variables.gradle
+
+      - name: Build test APK and unsigned AAB
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug bundleRelease
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hesabaty-preview-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned AAB (not for Play upload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: hesabaty-unsigned-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
