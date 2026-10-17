@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
+import 'screens/signup_page.dart';
 import 'auth/auth_feedback.dart';
 import 'auth/server_diagnostics.dart';
 import 'finance/transaction_store.dart';
@@ -290,6 +291,7 @@ class _SignInPageState extends State<_SignInPage> {
     _loginSubscription = Supabase.instance.client.auth.onAuthStateChange
         .listen((data) {
       if (mounted && data.event == AuthChangeEvent.signedIn &&
+          ModalRoute.of(context)?.isCurrent == true &&
           Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -304,81 +306,60 @@ class _SignInPageState extends State<_SignInPage> {
     super.dispose();
   }
 
-  Future<void> _authenticate({required bool register}) async {
+  void _openCreateAccount() {
+    Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => SignUpPage(
+        initialEmail: _email.text.trim(),
+        isEnglish: widget.isEnglish,
+      ),
+    ));
+  }
+
+  Future<void> _signIn() async {
     if (_busy) return;
     final email = _email.text.trim();
     final password = _password.text;
     if (!AuthFeedback.validEmail(email)) {
       setState(() {
         _statusIsError = true;
-        _status = 'راجع البريد الإلكتروني: لازم يكون بالشكل name@example.com';
+        _status = 'اكتب بريدك الإلكتروني في خانة الدخول، '
+            'أو اضغط إنشاء حساب جديد علشان تفتح صفحة التسجيل.';
       });
       return;
     }
-    if (password.length < 6) {
+    if (password.isEmpty) {
       setState(() {
         _statusIsError = true;
-        _status = 'كلمة المرور لازم تكون 6 حروف على الأقل '
-            '(والأفضل 8 حروف أو أكتر).';
+        _status = 'اكتب كلمة المرور علشان تسجّل الدخول.';
       });
       return;
     }
     setState(() {
       _busy = true;
       _statusIsError = false;
-      _status = register
-          ? 'جاري إرسال طلب إنشاء الحساب للسيرفر...'
-          : 'جاري تسجيل الدخول...';
+      _status = 'جاري تسجيل الدخول...';
     });
     try {
-      final auth = Supabase.instance.client.auth;
-      if (register) {
-        final result = await auth.signUp(
-          email: email,
-          password: password,
-        ).timeout(const Duration(seconds: 25));
-        if (!mounted) return;
-        if (result.user == null) {
-          setState(() {
-            _statusIsError = true;
-            _status = 'السيرفر ما أكدش إنشاء الحساب. '
-                'راجع إعداد Email Signups وسجلات Auth في Supabase.';
-          });
-          return;
-        }
-        setState(() {
-          _statusIsError = false;
-          _status = result.session == null
-              ? 'السيرفر لسه بيطلب تأكيد البريد. '
-                  'علشان التسجيل المباشر، اقفل Confirm Email '
-                  'من إعدادات Supabase > Sign In / Providers > Email.'
-              : 'تم إنشاء الحساب وتسجيل الدخول مباشرة بنجاح.';
-        });
-        if (result.session != null && mounted) {
-          if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-        }
-      } else {
-        await auth.signInWithPassword(
-          email: email, password: password,
-        ).timeout(const Duration(seconds: 25));
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: email, password: password,
+      ).timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      if (ModalRoute.of(context)?.isCurrent == true &&
+          Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
     } on TimeoutException {
       if (mounted) {
         setState(() {
           _statusIsError = true;
-          _status = 'السيرفر اتأخر في الرد. ممكن يكون الطلب وصل؛ '
-              'اتأكد من الإنترنت، وجرب تسجيل الدخول قبل ما تعيد إنشاء الحساب.';
+          _status = 'السيرفر اتأخر في الرد. تأكد من الإنترنت وحاول تاني.';
         });
       }
     } on SocketException {
       if (mounted) {
         setState(() {
           _statusIsError = true;
-          _status = 'التطبيق مش قادر يوصل لسيرفر حساباتي. '
-              'راجع الإنترنت وجرب شبكة تانية.';
+          _status = 'مفيش اتصال بسيرفر حساباتي. جرب شبكة مختلفة.';
         });
       }
     } on AuthException catch (error) {
@@ -388,12 +369,11 @@ class _SignInPageState extends State<_SignInPage> {
           _status = AuthFeedback.serverError(error.message);
         });
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _statusIsError = true;
-          _status = 'حصل خطأ غير متوقع أثناء الاتصال '
-              '(${error.runtimeType}). جرب مرة تانية أو ابعت صورة الرسالة.';
+          _status = 'تعذر تسجيل الدخول. حاول تاني.';
         });
       }
     } finally {
@@ -589,12 +569,13 @@ class _SignInPageState extends State<_SignInPage> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: _busy ? null : () => _authenticate(register: false),
+                  onPressed: _busy ? null : _signIn,
                   child: Text(_lang('تسجيل الدخول', 'Sign in')),
                 ),
+                const SizedBox(height: 10),
                 OutlinedButton(
                   key: const Key('create-account'),
-                  onPressed: _busy ? null : () => _authenticate(register: true),
+                  onPressed: _busy ? null : _openCreateAccount,
                   child: Text(_lang('إنشاء حساب جديد', 'Create account')),
                 ),
                 OutlinedButton.icon(
