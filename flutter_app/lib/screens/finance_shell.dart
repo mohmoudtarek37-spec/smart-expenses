@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show NumberFormat;
+import 'package:intl/intl.dart' show NumberFormat, DateFormat;
 
 import '../finance/backup_codec.dart';
 import '../finance/guest_migration.dart';
@@ -143,7 +143,38 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       widget.isEnglish ? english : arabic;
 
   String _money(num value) => _formatter.format(value);
-  String _currency(num value) => '${_money(value)} ج.م';
+  String _currency(num value) => widget.isEnglish
+      ? '${_money(value)} EGP' : '${_money(value)} ج.م';
+
+  String _monthDisplay(DateTime month) => widget.isEnglish
+      ? DateFormat('MMMM yyyy', 'en').format(month) : monthTitle(month);
+
+  String _dateDisplay(DateTime date) => widget.isEnglish
+      ? DateFormat('d MMM yyyy', 'en').format(date) : formattedDate(date);
+
+  String _categoryName(String value) {
+    if (!widget.isEnglish) return value;
+    const builtIns = <String, String>{
+      'مشتريات': 'Shopping',
+      'مصاريف شحن': 'Shipping fees',
+      'اشتراكات': 'Subscriptions',
+      'كهرباء': 'Electricity',
+      'مياه': 'Water',
+      'مستلزمات بيت': 'Household',
+      'مصاريف شخصية': 'Personal',
+      'أقساط': 'Installments',
+      'مطاعم': 'Restaurants',
+      'صحة': 'Health',
+      'مواصلات': 'Transport',
+      'فواتير': 'Bills',
+      'أخرى': 'Other',
+      'راتب': 'Salary',
+      'تحويل وارد': 'Incoming transfer',
+      'إيداع': 'Deposit',
+    };
+    return builtIns[value] ?? value;
+  }
+
 
   FinanceSummary get _summary => FinanceSummary(_entries);
 
@@ -278,7 +309,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, entry.id),
               child: Text('ربط بسحب موجود: ${entry.title} — '
-                  '${formattedDate(entry.date)}'),
+                  '${_dateDisplay(entry.date)}'),
             ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 22, vertical: 10),
@@ -580,18 +611,18 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         children: [
           IconButton(
             key: const Key('previous-month'),
-            tooltip: 'الشهر السابق',
+            tooltip: _lang('الشهر السابق', 'Previous month'),
             onPressed: () => setState(() => _month = shiftMonth(_month, -1)),
             icon: const Icon(Icons.chevron_right),
           ),
-          Expanded(child: Text('🗓  ${monthTitle(_month)}',
+          Expanded(child: Text('🗓  ${_monthDisplay(_month)}',
               key: const Key('current-month'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 15,
                   fontWeight: FontWeight.w700))),
           IconButton(
             key: const Key('next-month'),
-            tooltip: 'الشهر التالي',
+            tooltip: _lang('الشهر التالي', 'Next month'),
             onPressed: () => setState(() => _month = shiftMonth(_month, 1)),
             icon: const Icon(Icons.chevron_left),
           ),
@@ -617,7 +648,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             Icon(Icons.account_balance_wallet_outlined, color: _accent,
                 size: 20),
             const SizedBox(width: 8),
-            const Text('الإجمالي', style: TextStyle(
+            Text(_lang('الإجمالي', 'Total income'), style: const TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 12),
@@ -625,11 +656,11 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
               textDirection: TextDirection.ltr,
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
                   color: _ink)),
-          Text('جنيه • إجمالي إيداعات الشهر',
+          Text(_lang('جنيه • إجمالي إيداعات الشهر', 'EGP • total income this month'),
               style: TextStyle(fontSize: 11, color: _mutedText)),
           const SizedBox(height: 20),
           Center(child: Column(children: [
-            Text('نسبة المصروفات', style: TextStyle(
+            Text(_lang('نسبة المصروفات', 'Spending ratio'), style: TextStyle(
                 fontSize: 12, color: _mutedText)),
             const SizedBox(height: 9),
             SizedBox(height: 112, width: 112,
@@ -651,10 +682,10 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             ),
             const SizedBox(height: 9),
             Text(totals.deposit <= 0
-                ? 'أضف إيداعًا لعرض النسبة'
+                ? _lang('أضف إيداعًا لعرض النسبة', 'Add income to see the ratio')
                 : totals.remaining < 0
-                    ? 'مصروفاتك تجاوزت الإيداعات'
-                    : 'من إجمالي الإيداعات',
+                    ? _lang('مصروفاتك تجاوزت الإيداعات', 'Expenses exceed your income')
+                    : _lang('من إجمالي الإيداعات', 'of total income'),
                 style: TextStyle(color: _mutedText, fontSize: 11)),
           ])),
         ],
@@ -689,7 +720,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                     fontSize: 19, color: color)),
           ),
           const SizedBox(height: 4),
-          Text('جنيه', style: TextStyle(fontSize: 10, color: _mutedText)),
+          Text(_lang('جنيه', 'EGP'), style: TextStyle(fontSize: 10, color: _mutedText)),
         ],
       ),
     ),
@@ -709,7 +740,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Widget _categoryList(List<MapEntry<String, double>> categories,
       MonthTotals totals) {
     if (categories.isEmpty) {
-      return _empty('لحد دلوقتي مفيش مصروفات في الشهر ده',
+      return _empty(_lang('لحد دلوقتي مفيش مصروفات في الشهر ده', 'No expenses recorded this month'),
           Icons.bar_chart_outlined);
     }
     return _panel(child: Column(
@@ -718,7 +749,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           padding: const EdgeInsets.symmetric(vertical: 9),
           child: Column(children: [
             Row(children: [
-              Expanded(child: Text(category.key,
+              Expanded(child: Text(_categoryName(category.key),
                   style: const TextStyle(fontSize: 13,
                       fontWeight: FontWeight.w700))),
               Text(_currency(category.value), style: const TextStyle(
@@ -756,14 +787,14 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(entry.title, maxLines: 1,
+              Text(_categoryName(entry.title), maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700,
                       fontSize: 13)),
               const SizedBox(height: 4),
               Text('${formattedDate(entry.date)} · '
-                  '${entry.source.isEmpty ? 'يدوي' : entry.source}'
-                  '${entry.excluded ? ' · مستبعدة' : ''}',
+                  '${entry.source.isEmpty ? _lang('يدوي', 'Manual') : entry.source}'
+                  '${entry.excluded ? _lang(' · مستبعدة', ' · excluded') : ''}',
                   style: TextStyle(color: _mutedText, fontSize: 11)),
             ],
           )),
@@ -779,7 +810,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
 
   Widget _entryList(List<FinanceEntry> entries, {String? emptyMessage}) {
     if (entries.isEmpty) {
-      return _empty(emptyMessage ?? 'لا توجد معاملات مطابقة في هذا الشهر',
+      return _empty(emptyMessage ?? _lang('لا توجد معاملات مطابقة في هذا الشهر', 'No matching transactions this month'),
           Icons.receipt_long_outlined);
     }
     return _panel(child: Column(children: [
@@ -819,26 +850,26 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                 color: overdue > 0 ? _red : _accent),
             const SizedBox(width: 8),
             Expanded(child: Text(
-              overdue > 0 ? 'عندك ' + overdue.toString() + ' قسط متأخر'
-                  : today > 0 ? 'عندك ' + today.toString() + ' قسط النهارده'
-                  : 'أقساط مستحقة قريبًا',
+              overdue > 0 ? _lang('عندك ', 'You have ') + overdue.toString() + _lang(' قسط متأخر', ' overdue installments')
+                  : today > 0 ? _lang('عندك ', 'You have ') + today.toString() + _lang(' قسط النهارده', ' due today')
+                  : _lang('أقساط مستحقة قريبًا', 'Upcoming installment payments'),
               style: const TextStyle(fontWeight: FontWeight.w800),
             )),
             TextButton(
               onPressed: () => _goTo(2),
-              child: const Text('عرض الأقساط')),
+              child: Text(_lang('عرض الأقساط', 'View installments'))),
           ]),
           for (final n in notices.take(3))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Text(n.plan.name + ': ' + _currency(n.plan.amount) +
-                  ' · ' + (n.daysLeft < 0 ? 'متأخر' :
-                      n.daysLeft == 0 ? 'النهارده' :
-                      'بعد ' + n.daysLeft.toString() + ' يوم'),
+                  ' · ' + (n.daysLeft < 0 ? _lang('متأخر', 'Overdue') :
+                      n.daysLeft == 0 ? _lang('النهارده', 'Today') :
+                      _lang('بعد ', 'In ') + n.daysLeft.toString() + _lang(' يوم', ' days')),
                 style: TextStyle(color: _mutedText, fontSize: 12)),
             ),
           if (notices.length > 3)
-            Text('وفيه ' + (notices.length - 3).toString() + ' قسط إضافي',
+            Text(_lang('وفيه ', 'Plus ') + (notices.length - 3).toString() + _lang(' قسط إضافي', ' more installments'),
               style: TextStyle(color: _mutedText, fontSize: 12)),
         ],
       )),
@@ -857,34 +888,34 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         _dueNoticesPanel(),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _smallMetric(key: const Key('withdrawal-card'), title: 'السحب',
+          _smallMetric(key: const Key('withdrawal-card'), title: _lang('السحب', 'Expenses'),
             value: _money(totals.withdrawal), icon: Icons.north_east,
             color: _red, onTap: () => _goTo(1,
                 filter: _Filter.withdrawal)),
           const SizedBox(width: 8),
-          _smallMetric(title: 'الإيداع', value: _money(totals.deposit),
+          _smallMetric(title: _lang('الإيداع', 'Income'), value: _money(totals.deposit),
             icon: Icons.south_west, color: _blue,
             onTap: () => _goTo(1, filter: _Filter.deposit)),
           const SizedBox(width: 8),
-          _smallMetric(title: 'المتبقي', value: _money(totals.remaining),
+          _smallMetric(title: _lang('المتبقي', 'Balance'), value: _money(totals.remaining),
             icon: Icons.radio_button_checked,
             color: totals.remaining < 0 ? _red : _green,
             onTap: () => _goTo(1)),
         ]),
         _monthPicker(),
         Align(alignment: Alignment.centerRight,
-          child: _action('تحميل تقرير PDF للشهر', Icons.download_outlined,
+          child: _action(_lang('تحميل تقرير PDF للشهر', 'Download monthly PDF'), Icons.download_outlined,
               () => _exportMonthlyReport())),
-        _sectionTitle('المصروفات حسب التصنيف',
+        _sectionTitle(_lang('المصروفات حسب التصنيف', 'Expenses by category'),
             action: 'التفاصيل ←', onTap: () => _goTo(3)),
         _categoryList(categories, totals),
-        _sectionTitle('آخر المعاملات',
+        _sectionTitle(_lang('آخر المعاملات', 'Recent transactions'),
             action: 'عرض الكل ←', onTap: () => _goTo(1)),
         _entryList(recent,
             emptyMessage: 'أضف أول معاملة أو استورد رسالة SMS'),
         const SizedBox(height: 13),
         Wrap(spacing: 8, children: [
-          _action('استيراد رسائل SMS', Icons.sms_outlined,
+          _action(_lang('استيراد رسائل SMS', 'Import SMS messages'), Icons.sms_outlined,
               () => _importSmsFile()),
           _action('الأقساط', Icons.calendar_month_outlined,
               () => _goTo(2)),
@@ -917,27 +948,27 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             style: TextStyle(fontSize: 12, color: _mutedText)),
         _monthPicker(),
         Wrap(spacing: 8, children: [
-          _action('استيراد SMS', Icons.sms_outlined,
+          _action(_lang('استيراد SMS', 'Import SMS'), Icons.sms_outlined,
               () => _importSmsFile()),
-          _action('تقرير PDF', Icons.download,
+          _action(_lang('تقرير PDF', 'PDF report'), Icons.download,
               () => _exportMonthlyReport()),
-          _action('معاملة يدوية', Icons.add,
+          _action(_lang('معاملة يدوية', 'New transaction'), Icons.add,
               () => _editTransaction()),
         ]),
         const SizedBox(height: 12),
         Wrap(spacing: 7, children: [
-          _chip('الكل', _Filter.all),
-          _chip('↗ السحب', _Filter.withdrawal),
-          _chip('↙ الإيداع', _Filter.deposit),
+          _chip(_lang('الكل', 'All'), _Filter.all),
+          _chip(_lang('↗ السحب', '↗ Expenses'), _Filter.withdrawal),
+          _chip(_lang('↙ الإيداع', '↙ Income'), _Filter.deposit),
         ]),
         const SizedBox(height: 12),
         TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'بحث بالاسم أو المصدر أو النص...',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            hintText: _lang('بحث بالاسم أو المصدر أو النص...', 'Search by name, source or notes...'),
+            border: const OutlineInputBorder(),
             isDense: true,
           ),
         ),
@@ -970,11 +1001,11 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             style: TextStyle(fontSize: 12, color: _mutedText)),
         _monthPicker(),
         Row(children: [
-          _smallMetric(title: 'أقساط الشهر',
+          _smallMetric(title: _lang('أقساط الشهر', 'Installments this month'),
               value: _money(summary.total), icon: Icons.calendar_month,
               color: _blue, onTap: () {}),
           const SizedBox(width: 9),
-          _smallMetric(title: 'المتبقي دفعه',
+          _smallMetric(title: _lang('المتبقي دفعه', 'Remaining to pay'),
               value: _money(summary.remaining),
               icon: Icons.schedule_outlined,
               color: summary.remaining > 0 ? _red : _green,
@@ -983,22 +1014,25 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         const SizedBox(height: 16),
         _panel(
           background: _alt,
-          child: const Text(
-            '🔔 بنعرض الأقساط المستحقة عند فتح حساباتي. '
-            'صدّر مواعيد الأقساط للتقويم وفعّل تنبيهاته '
-            'علشان توصلك حتى لو حساباتي مقفول.',
-            style: TextStyle(fontSize: 12, height: 1.6),
+          child: Text(
+            _lang('🔔 بنعرض الأقساط المستحقة عند فتح حساباتي. '
+                'صدّر مواعيد الأقساط للتقويم وفعّل تنبيهاته '
+                'علشان توصلك حتى لو حساباتي مقفول.',
+                '🔔 Due installments appear when you open Hesabaty. '
+                'Export them to your calendar and enable calendar alerts '
+                'to get reminders while the app is closed.'),
+            style: const TextStyle(fontSize: 12, height: 1.6),
           ),
         ),
         const SizedBox(height: 13),
         Wrap(spacing: 9, children: [
-          _action('＋ إضافة قسط', Icons.add, () => _editInstallment()),
-          _action('تصدير للتقويم', Icons.calendar_month_outlined,
+          _action(_lang('＋ إضافة قسط', '＋ Add installment'), Icons.add, () => _editInstallment()),
+          _action(_lang('تصدير للتقويم', 'Export to calendar'), Icons.calendar_month_outlined,
               () => _exportCalendar()),
         ]),
-        _sectionTitle('الأقساط المسجلة'),
+        _sectionTitle(_lang('الأقساط المسجلة', 'Saved installments')),
         if (summary.plans.isEmpty)
-          _empty('مفيش أقساط مسجلة للشهر ده، ابدأ بإضافة أول قسط',
+          _empty(_lang('مفيش أقساط مسجلة للشهر ده، ابدأ بإضافة أول قسط', 'No installments scheduled this month'),
               Icons.calendar_month_outlined),
         for (final plan in summary.plans) ...[
           _installmentCard(plan, statusFor(plan, _month, today)),
@@ -1011,10 +1045,10 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Widget _installmentCard(InstallmentPlan plan, DueStatus dueStatus) {
     final paid = plan.paymentFor(_month) != null;
     final label = switch (dueStatus) {
-      DueStatus.paid => 'مدفوع',
-      DueStatus.overdue => 'متأخر',
-      DueStatus.today => 'مستحق اليوم',
-      DueStatus.upcoming => 'منتظر الدفع',
+      DueStatus.paid => _lang('مدفوع', 'Paid'),
+      DueStatus.overdue => _lang('متأخر', 'Overdue'),
+      DueStatus.today => _lang('مستحق اليوم', 'Due today'),
+      DueStatus.upcoming => _lang('منتظر الدفع', 'Awaiting payment'),
     };
     return _panel(child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1025,8 +1059,9 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             children: [
               Text(plan.name, style: const TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 15)),
-              Text('يوم ${plan.dueDay} من كل شهر · '
-                  '${plan.count == 0 ? 'مستمر' : '${plan.payments.length} من ${plan.count}'}',
+              Text(widget.isEnglish
+                  ? 'Day ${plan.dueDay} each month · ${plan.count == 0 ? 'Ongoing' : '${plan.payments.length} of ${plan.count}'}'
+                  : 'يوم ${plan.dueDay} من كل شهر · ${plan.count == 0 ? 'مستمر' : '${plan.payments.length} من ${plan.count}'}',
                   style: TextStyle(fontSize: 11, color: _mutedText)),
             ],
           )),
@@ -1047,17 +1082,17 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           ),
         ],
         const SizedBox(height: 11),
-        Text('الاستحقاق: ${formattedDate(plan.dueDate(_month))}',
+        Text('${_lang('الاستحقاق:', 'Due:')} ${_dateDisplay(plan.dueDate(_month))}',
             style: TextStyle(color: _mutedText, fontSize: 12)),
         const SizedBox(height: 9),
         Wrap(spacing: 8, runSpacing: 7, children: [
           if (!paid)
-            _action('✓ تسجيل الدفع', Icons.check,
+            _action(_lang('✓ تسجيل الدفع', '✓ Record payment'), Icons.check,
                 () => _payInstallment(plan))
           else
-            _action('إلغاء تسجيل الدفع', Icons.undo,
+            _action(_lang('إلغاء تسجيل الدفع', 'Undo payment'), Icons.undo,
                 () => _undoInstallmentPayment(plan)),
-          _action('تعديل', Icons.edit_outlined,
+          _action(_lang('تعديل', 'Edit'), Icons.edit_outlined,
               () => _editInstallment(plan)),
         ]),
       ],
@@ -1079,39 +1114,39 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       key: const Key('analytics-page'),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       children: [
-        const Text('التحليلات', style: TextStyle(
+        Text(_lang('التحليلات', 'Analytics'), style: const TextStyle(
           fontSize: 23, fontWeight: FontWeight.w800,
         )),
-        Text('اعرف فلوسك راحت فين وقارن بين الشهور',
+        Text(_lang('اعرف فلوسك راحت فين وقارن بين الشهور', 'Explore spending and compare months'),
             style: TextStyle(color: _mutedText, fontSize: 12)),
         _monthPicker(),
-        _sectionTitle('حركة آخر 6 شهور'),
+        _sectionTitle(_lang('حركة آخر 6 شهور', 'Last 6 months')),
         _panel(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _sixMonthChart(analysis),
             const SizedBox(height: 14),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _analyticsLegend('الإيداع', _accent),
+              _analyticsLegend(_lang('الإيداع', 'Income'), _accent),
               const SizedBox(width: 20),
-              _analyticsLegend('السحب', _red),
+              _analyticsLegend(_lang('السحب', 'Expenses'), _red),
             ]),
           ],
         )),
-        _sectionTitle('المقارنة الشهرية'),
+        _sectionTitle(_lang('المقارنة الشهرية', 'Monthly comparison')),
         _panel(child: Column(
           children: [
-            _analyticsRow('سحب الشهر الحالي',
+            _analyticsRow(_lang('سحب الشهر الحالي', 'Expenses this month'),
                 _currency(comparison.current.withdrawal),
                 valueColor: _red),
             Divider(color: _line),
-            _analyticsRow('سحب الشهر السابق',
+            _analyticsRow(_lang('سحب الشهر السابق', 'Expenses last month'),
                 _currency(comparison.previous.withdrawal)),
             Divider(color: _line),
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                comparison.describe(_money),
+                widget.isEnglish ? comparison.describeEnglish(_money) : comparison.describe(_money),
                 key: const Key('expense-comparison'),
                 style: TextStyle(
                   color: _mutedText, height: 1.8, fontSize: 12,
@@ -1120,9 +1155,9 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             ),
           ],
         )),
-        _sectionTitle('توزيع المصروفات'),
+        _sectionTitle(_lang('توزيع المصروفات', 'Spending breakdown')),
         if (categories.isEmpty)
-          _empty('مفيش مصروفات للتحليل في الشهر ده',
+          _empty(_lang('مفيش مصروفات للتحليل في الشهر ده', 'No expenses to analyze this month'),
               Icons.trending_down_outlined)
         else
           _panel(child: Column(
@@ -1132,7 +1167,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Column(children: [
                     Row(children: [
-                      Expanded(child: Text(categories[i].key,
+                      Expanded(child: Text(_categoryName(categories[i].key),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w700))),
                       Text(_currency(categories[i].value),
@@ -1158,7 +1193,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
               ],
             ],
           )),
-        _sectionTitle('مؤشرات الشهر'),
+        _sectionTitle(_lang('مؤشرات الشهر', 'Monthly indicators')),
         _panel(child: Column(children: [
           _analyticsRow(
             'نسبة المصروفات من الإيداعات',
@@ -1219,7 +1254,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                           maxValue: maxValue,
                           color: _accent,
                           month: monthly[index].month,
-                          title: 'الإيداع',
+                          title: _lang('الإيداع', 'Income'),
                         )),
                         const SizedBox(width: 3),
                         Flexible(child: _analyticsBar(
@@ -1228,7 +1263,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                           maxValue: maxValue,
                           color: _red,
                           month: monthly[index].month,
-                          title: 'السحب',
+                          title: _lang('السحب', 'Expenses'),
                         )),
                       ],
                     ),
