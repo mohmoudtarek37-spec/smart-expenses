@@ -1,31 +1,48 @@
 import 'dart:io';
 
-/// flutter create generates platform sources in CI. INTERNET is automatically
-/// present in debug manifests but MUST also be in the main/release manifest,
-/// otherwise login and cloud sync break when the app is distributed.
+/// Prepare generated Android manifests for cloud auth, password reset and
+/// Google OAuth. Run immediately after flutter create (CI does this too).
 void main() {
   final manifest = File('android/app/src/main/AndroidManifest.xml');
   if (!manifest.existsSync()) {
-    stderr.writeln('Android manifest missing. Run flutter create first.');
+    stderr.writeln('Missing Android manifest; run flutter create first.');
     exitCode = 1;
     return;
   }
-  final content = manifest.readAsStringSync();
-  if (content.contains('android.permission.INTERNET')) {
-    stdout.writeln('Main Android manifest already allows internet.');
-    return;
+  var source = manifest.readAsStringSync();
+  if (!source.contains('android.permission.INTERNET')) {
+    final root = RegExp(r'<manifest\b[^>]*>');
+    if (!root.hasMatch(source)) {
+      stderr.writeln('Unexpected Android manifest root.');
+      exitCode = 1;
+      return;
+    }
+    source = source.replaceFirstMapped(root, (m) =>
+        (m.group(0) ?? '') + '\n'
+        '    <uses-permission android:name="android.permission.INTERNET" />');
   }
-  final pattern = RegExp(r'<manifest\b[^>]*>');
-  if (!pattern.hasMatch(content)) {
-    stderr.writeln('Unrecognized Android manifest; no file was changed.');
-    exitCode = 1;
-    return;
+
+  const scheme = 'io.github.mohmoudtarek37spec.hesabaty';
+  if (!source.contains('android:scheme="' + scheme + '"')) {
+    final activity = RegExp(
+        r'<activity\b[^>]*android:name="\.MainActivity"[^>]*>');
+    if (!activity.hasMatch(source)) {
+      stderr.writeln('MainActivity not found, cannot install callback.');
+      exitCode = 1;
+      return;
+    }
+    const filter = '''
+        <intent-filter android:autoVerify="false">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="io.github.mohmoudtarek37spec.hesabaty"
+                  android:host="auth-callback" />
+        </intent-filter>
+''';
+    source = source.replaceFirstMapped(activity,
+        (m) => (m.group(0) ?? '') + '\n' + filter);
   }
-  final updated = content.replaceFirstMapped(
-    pattern,
-    (match) => '${match.group(0)}\n'
-        '    <uses-permission android:name="android.permission.INTERNET" />',
-  );
-  manifest.writeAsStringSync(updated);
-  stdout.writeln('Added INTERNET permission to Android main manifest.');
+  manifest.writeAsStringSync(source);
+  stdout.writeln('Android INTERNET permission and OAuth callback verified.');
 }
