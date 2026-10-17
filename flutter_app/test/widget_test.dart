@@ -47,6 +47,40 @@ void main() {
     expect(find.text('Category'), findsOneWidget);
   });
 
+  testWidgets('category management lists built-ins and custom add control',
+      (WidgetTester tester) async {
+    final store = _WidgetLedgerStore();
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+        child: FinanceShell(store: store)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-action')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('custom-categories')), 150,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('settings-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('custom-categories')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('category-management-page')), findsOneWidget);
+    expect(find.text('فئات المصروفات'), findsOneWidget);
+    expect(find.text('مشتريات'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('category-management-add')), 160,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('category-management-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('category-management-add')), findsOneWidget);
+  });
+
   testWidgets('account profile saves an optional username without login',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1200, 2300);

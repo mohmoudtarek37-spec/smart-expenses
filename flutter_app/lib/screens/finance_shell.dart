@@ -14,6 +14,7 @@ import '../finance/analytics_models.dart';
 import 'premium_page.dart';
 import '../subscriptions/account_plan.dart';
 import 'account_profile_page.dart';
+import 'category_management_page.dart';
 import '../finance/monthly_report.dart';
 import '../finance/installment_calendar.dart';
 import '../finance/due_notices.dart';
@@ -2214,6 +2215,19 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     }
   }
 
+  Future<void> _openCategoryManagement() async {
+    if (!_editable) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => CategoryManagementPage(
+        isEnglish: widget.isEnglish,
+        customCategories: () => List<String>.of(_customCategories),
+        onAdd: _addCustomCategory,
+        onRemove: _removeCustomCategory,
+        editable: _editable,
+      )),
+    );
+  }
+
   Widget _settingsHeading(String ar, String en) => Padding(
     padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
     child: Text(_lang(ar, en),
@@ -2286,18 +2300,10 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           key: const Key('custom-categories'),
           leading: const Icon(Icons.category_outlined),
           title: Text(_lang('تخصيص الفئات', 'Customize categories')),
-          subtitle: Text(_lang('الفئات الأساسية والتصنيفات المضافة',
-              'Default and custom categories')),
-        ),
-        for (final category in _customCategories)
-          ListTile(title: Text(category),
-            trailing: IconButton(icon: const Icon(Icons.delete_outline),
-              onPressed: _editable ? () => _removeCustomCategory(category) : null)),
-        ListTile(
-          key: const Key('add-custom-category'),
-          leading: const Icon(Icons.add_circle_outline),
-          title: Text(_lang('إضافة تصنيف جديد', 'Add category')),
-          onTap: _editable ? _addCustomCategory : null,
+          subtitle: Text(_lang('عرض الفئات الأساسية وإدارة فئاتك',
+              'View built-in categories and manage your own')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _editable ? _openCategoryManagement : null,
         ),
       ])),
       const SizedBox(height: 18),
