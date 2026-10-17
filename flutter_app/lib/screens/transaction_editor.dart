@@ -110,6 +110,12 @@ class _TransactionEditorState extends State<TransactionEditor> {
       source: _source,
       note: _note.text.trim(),
       excluded: _excluded,
+      originalMessage: widget.original?.originalMessage ?? '',
+      receiptDataUrl: widget.original?.receiptDataUrl ?? '',
+      sender: widget.original?.sender ?? '',
+      fingerprint: widget.original?.fingerprint ?? '',
+      createdAt: widget.original?.createdAt ?? '',
+      extraFields: widget.original?.extraFields ?? const {},
     );
     Navigator.of(context).pop(TransactionEditResult.save(entry));
   }
