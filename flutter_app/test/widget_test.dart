@@ -74,6 +74,49 @@ void main() {
     expect(find.text('تسجيل الخروج'), findsOneWidget);
   });
 
+  testWidgets('analytics shows 6-month bars, category and monthly comparison',
+      (WidgetTester tester) async {
+    final today = DateTime.now();
+    final previous = DateTime(today.year, today.month - 1, 9);
+    final entries = [
+      FinanceEntry(id: 'income', type: EntryType.deposit, amount: 1000,
+        date: DateTime(today.year, today.month, 2), category: 'راتب'),
+      FinanceEntry(id: 'expense', type: EntryType.withdrawal, amount: 200,
+        date: DateTime(today.year, today.month, 3), category: 'مطاعم'),
+      FinanceEntry(id: 'old', type: EntryType.withdrawal, amount: 100,
+        date: previous, category: 'مواصلات'),
+      FinanceEntry(id: 'excluded', type: EntryType.withdrawal, amount: 700,
+        date: DateTime(today.year, today.month, 4),
+        category: 'صحة', excluded: true),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+        child: FinanceShell(entries: entries)),
+    ));
+    await tester.tap(find.text('التحليلات'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('analytics-page')), findsOneWidget);
+    expect(find.byKey(const Key('six-month-chart')), findsOneWidget);
+    expect(find.byKey(const Key('month-0-deposit')), findsOneWidget);
+    expect(find.byKey(const Key('month-5-withdrawal')), findsOneWidget);
+    expect(find.text('حركة آخر 6 شهور'), findsOneWidget);
+    expect(find.text('المقارنة الشهرية'), findsOneWidget);
+    expect(find.textContaining('أعلى من الشهر السابق'), findsOneWidget);
+    expect(find.byKey(const Key('expense-category-مطاعم')), findsOneWidget);
+    expect(find.byKey(const Key('expense-category-صحة')), findsNothing);
+  });
+
+  testWidgets('empty analytics avoids divide by zero and shows no chart data',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const HesabatyApp());
+    await tester.tap(find.text('التحليلات'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('six-month-chart')), findsOneWidget);
+    expect(find.text('مفيش مصروفات مسجلة في الشهرين.'), findsOneWidget);
+    expect(find.text('مفيش مصروفات للتحليل في الشهر ده'), findsOneWidget);
+    expect(find.byKey(const Key('analytics-spending-share')), findsOneWidget);
+  });
+
   testWidgets('month selector updates its label',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
