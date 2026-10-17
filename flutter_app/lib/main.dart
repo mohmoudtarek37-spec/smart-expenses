@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
 import 'auth/auth_feedback.dart';
+import 'auth/server_diagnostics.dart';
 import 'finance/transaction_store.dart';
 
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
@@ -361,6 +362,33 @@ class _SignInPageState extends State<_SignInPage> {
     }
   }
 
+  Future<void> _checkAuthConnection() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusIsError = false;
+      _status = 'بنختبر الاتصال بسيرفر الحسابات...';
+    });
+    try {
+      final result = await AuthServerDiagnostics.check(
+        backendUrl: _backendUrl, publishableKey: _publishableKey);
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = !result.reachable ||
+            result.emailEnabled == false || result.signupAllowed == false;
+        _status = result.humanMessage;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'فحص الاتصال فشل. جرّب شبكة إنترنت مختلفة.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _googleSignIn() async {
     if (_busy) return;
     setState(() {
@@ -584,6 +612,12 @@ class _SignInPageState extends State<_SignInPage> {
                   key: const Key('create-account'),
                   onPressed: _busy ? null : () => _authenticate(register: true),
                   child: const Text('إنشاء حساب جديد'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('auth-diagnostics'),
+                  onPressed: _busy ? null : _checkAuthConnection,
+                  icon: const Icon(Icons.wifi_find_outlined),
+                  label: const Text('فحص الاتصال وإعدادات التسجيل'),
                 ),
                 TextButton(
                   key: const Key('forgot-password'),
