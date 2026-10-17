@@ -2361,12 +2361,26 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Widget _tab(String label, IconData icon, int index) => Expanded(
     child: InkWell(
       onTap: () => _goTo(index),
-      child: Padding(padding: const EdgeInsets.symmetric(vertical: 10),
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 23, color: _selected == index ? _accent : _mutedText),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 10,
-              color: _selected == index ? _accent : _mutedText,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 32, width: 39,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(13),
+              color: _selected == index
+                  ? _accent.withValues(alpha: 0.22)
+                  : Colors.transparent,
+            ),
+            child: Icon(icon, size: 22,
+              color: _selected == index ? _ink : _mutedText),
+          ),
+          const SizedBox(height: 3),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10,
+              color: _selected == index ? _ink : _mutedText,
               fontWeight: _selected == index
                   ? FontWeight.w800 : FontWeight.w400)),
         ]),
@@ -2376,19 +2390,27 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        backgroundColor: _background,
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: _pageGradient),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
         toolbarHeight: 58,
         leading: IconButton(
           key: const Key('settings-action'),
-          tooltip: _lang('الإعدادات', 'Settings'),
-          onPressed: () => _goTo(4),
-          icon: const Icon(Icons.settings_outlined),
+          tooltip: _selected == 4
+              ? _lang('الرئيسية', 'Home')
+              : _lang('الإعدادات', 'Settings'),
+          onPressed: () => _goTo(_selected == 4 ? 0 : 4),
+          icon: Icon(_selected == 4
+              ? Icons.arrow_back_ios_new_rounded
+              : Icons.settings_outlined),
         ),
         centerTitle: true,
-        title: Text(_lang('مرحبًا $_displayName', 'Hi $_displayName'),
+        title: Text(_selected == 4
+            ? _lang('الإعدادات', 'Settings')
+            : _lang('مرحبًا $_displayName', 'Hi $_displayName'),
           key: const Key('personal-greeting'),
           maxLines: 1, overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
@@ -2413,8 +2435,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             Container(
               width: double.infinity,
               color: widget.isDark
-                  ? const Color(0xFF3C331F)
-                  : const Color(0xFFFFF4D7),
+                  ? const Color(0xFF214968)
+                  : const Color(0xFFACCEE6),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Text(
                 _loadError ?? (widget.cloudEnabled
@@ -2455,12 +2477,12 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         key: const Key('add-transaction'),
         onPressed: () => _editTransaction(),
         backgroundColor: _accent,
-        foregroundColor: const Color(0xFF222012),
+        foregroundColor: const Color(0xFF082B46),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
         tooltip: _lang('إضافة معاملة جديدة', 'Add transaction'),
         child: const Icon(Icons.add, size: 30),
       ),
-    );
+    ));
   }
 }
