@@ -25,7 +25,8 @@ void main() {
     final monthText = tester.widget<Text>(
         find.byKey(const Key('current-month')));
     final original = monthText.data;
-    await tester.ensureVisible(find.byKey(const Key('previous-month')));
+    await tester.drag(find.byKey(const Key('home-page')), const Offset(0, -280));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('previous-month')));
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(find.byKey(const Key('current-month'))).data,
