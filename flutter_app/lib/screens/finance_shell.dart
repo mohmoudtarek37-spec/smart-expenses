@@ -1144,7 +1144,7 @@ class _FinanceShellState extends State<FinanceShell> {
   Future<void> _replaceLedgerLocally(InstallmentLedger ledger) async {
     final store = widget.store! as LedgerStore;
     if (store is BackupRestorableStore) {
-      await store.replaceFromBackup(ledger);
+      await (store as BackupRestorableStore).replaceFromBackup(ledger);
     } else {
       await store.saveLedger(ledger);
     }
