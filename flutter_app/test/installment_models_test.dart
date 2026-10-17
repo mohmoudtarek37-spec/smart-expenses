@@ -98,6 +98,20 @@ void main() {
     expect(undone.installments.single.payments, isEmpty);
   });
 
+  test('deleting a plan keeps past withdrawals and releases their links', () {
+    final paid = InstallmentLedger(
+        entries: const [], installments: [makePlan()]).recordPayment(
+      installmentId: 'phone', month: DateTime(2026, 4),
+      paidOn: DateTime(2026, 4, 15), newTransactionId: 'old-payment',
+    );
+    final after = paid.withoutPlan('phone');
+    expect(after.installments, isEmpty);
+    expect(after.entries, hasLength(1));
+    expect(after.entries.single.amount, 1200);
+    expect(after.entries.single.linkedInstallment, isEmpty);
+    expect(after.entries.single.installmentCreated, isFalse);
+  });
+
   test('invalid repeated payments and bad due days are rejected', () {
     final payment = InstallmentPayment(
       month: DateTime(2026, 4),
