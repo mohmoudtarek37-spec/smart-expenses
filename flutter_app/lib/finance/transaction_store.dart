@@ -24,6 +24,14 @@ abstract class BackupRestorableStore {
   Future<InstallmentLedger?> lastImportRestorePoint();
 }
 
+/// This checkpoint is only a hint for which cloud revision this device
+/// previously reviewed. The server still enforces every compare-and-swap.
+abstract class CloudRevisionStore {
+  Future<int?> readCloudRevision();
+  Future<void> recordCloudRevision(int revision);
+  Future<void> clearCloudRevision();
+}
+
 abstract class PrivateStringStorage {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
@@ -46,7 +54,8 @@ class DevicePrivateStorage implements PrivateStringStorage {
 
 /// Per-account device encrypted preview storage. v1 transaction snapshots are
 /// opened without data loss and become v2 (transaction+installment) on write.
-class EncryptedTransactionStore implements LedgerStore, BackupRestorableStore {
+class EncryptedTransactionStore
+    implements LedgerStore, BackupRestorableStore, CloudRevisionStore {
   EncryptedTransactionStore({
     required String accountScope,
     PrivateStringStorage? storage,
@@ -58,6 +67,35 @@ class EncryptedTransactionStore implements LedgerStore, BackupRestorableStore {
   final PrivateStringStorage _storage;
 
   String get _restoreKey => '${_key}_pre_import';
+  String get _syncRevisionKey => '${_key}_sync_revision';
+
+  @override
+  Future<int?> readCloudRevision() async {
+    final raw = await _storage.read(_syncRevisionKey);
+    if (raw == null) return null;
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic> ||
+        decoded['version'] != 1 ||
+        decoded['revision'] is! int ||
+        (decoded['revision'] as int) < 1) {
+      throw const FormatException('Invalid cloud synchronization checkpoint');
+    }
+    return decoded['revision'] as int;
+  }
+
+  @override
+  Future<void> recordCloudRevision(int revision) {
+    if (revision < 1) {
+      throw const FormatException('Invalid cloud revision');
+    }
+    return _storage.write(_syncRevisionKey,
+        jsonEncode({'version': 1, 'revision': revision}));
+  }
+
+  @override
+  Future<void> clearCloudRevision() =>
+      _storage.write(_syncRevisionKey, '');
+
 
   @override
   Future<void> replaceFromBackup(InstallmentLedger ledger) async {
