@@ -66,11 +66,14 @@ class FinanceShell extends StatefulWidget {
 enum _Filter { all, deposit, withdrawal }
 
 class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver {
-  static const _muted = Color(0xFF607285);
-  static const _mutedDark = Color(0xFFABB3C5);
-  static const _red = Color(0xFFC63E55);
-  static const _green = Color(0xFF25846A);
-  static const _blue = Color(0xFF1767B0);
+  static const _muted = Color(0xFF4D6E87);
+  static const _mutedDark = Color(0xFFC1D5E6);
+  Color get _red => widget.isDark
+      ? const Color(0xFFFF7893) : const Color(0xFFBF3752);
+  Color get _green => widget.isDark
+      ? const Color(0xFF48DDB2) : const Color(0xFF087F5B);
+  Color get _blue => widget.isDark
+      ? const Color(0xFF91D7FF) : const Color(0xFF176A9F);
   final _formatter = NumberFormat.decimalPattern('en');
   final _search = TextEditingController();
   late DateTime _month;
@@ -121,24 +124,29 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   }
 
   Color get _accent => widget.isDark
-      ? const Color(0xFFFFE55D)
-      : const Color(0xFFD4A600);
+      ? const Color(0xFF99DAFF) : const Color(0xFF176496);
   Color get _ink => widget.isDark
-      ? const Color(0xFFF5F5F7)
-      : const Color(0xFF172534);
+      ? const Color(0xFFF1F8FF) : const Color(0xFF143652);
   Color get _mutedText => widget.isDark ? _mutedDark : _muted;
   Color get _surface => widget.isDark
-      ? const Color(0xFF1B1C26)
-      : Colors.white;
+      ? const Color(0xFF143A60) : const Color(0xFFEAF5FF);
   Color get _background => widget.isDark
-      ? const Color(0xFF0D0E14)
-      : Colors.white;
+      ? const Color(0xFF071C35) : const Color(0xFFD8EAF8);
   Color get _line => widget.isDark
-      ? const Color(0xFF303242)
-      : const Color(0xFFE3E9EF);
+      ? const Color(0x6686B7DF) : const Color(0xFFB5D4EC);
   Color get _alt => widget.isDark
-      ? const Color(0xFF262833)
-      : const Color(0xFFF5F7FA);
+      ? const Color(0xFF24517A) : const Color(0xFFD9EDFC);
+
+  LinearGradient get _pageGradient => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: widget.isDark
+        ? [_background, const Color(0xFF153F68),
+           const Color(0xFF0A2748), const Color(0xFF06192F)]
+        : [const Color(0xFFBCD9EF), _background,
+           const Color(0xFFEBF5FE), const Color(0xFFBCD9EF)],
+    stops: const [0, 0.36, 0.7, 1],
+  );
 
   String _lang(String arabic, String english) =>
       widget.isEnglish ? english : arabic;
@@ -617,13 +625,25 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Widget _panel({required Widget child, EdgeInsetsGeometry? padding,
       Color? background, Border? border}) => Container(
     decoration: BoxDecoration(
-      color: background ?? _surface,
-      borderRadius: BorderRadius.circular(19),
-      border: border ?? Border.all(color: _line),
+      color: background,
+      gradient: background == null
+          ? LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: widget.isDark
+                  ? [const Color(0xE22A557E), const Color(0xED14385D)]
+                  : [const Color(0xF9FFFFFF), const Color(0xF0DDEDF9)],
+            )
+          : null,
+      borderRadius: BorderRadius.circular(22),
+      border: border ?? Border.all(color: _line, width: 0.8),
+      boxShadow: [BoxShadow(
+        color: widget.isDark
+            ? const Color(0x50020D21) : const Color(0x225A80A3),
+        blurRadius: 18, offset: const Offset(0, 7)),
+      ],
     ),
     padding: padding ?? const EdgeInsets.all(16),
-    // ListTiles and InkWells need their own Material ink surface above the
-    // card background, otherwise taps can be invisible or trigger assertions.
     child: Material(type: MaterialType.transparency, child: child),
   );
 
@@ -655,11 +675,19 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             onPressed: () => setState(() => _month = shiftMonth(_month, -1)),
             icon: const Icon(Icons.chevron_right),
           ),
-          Expanded(child: Text('🗓  ${_monthDisplay(_month)}',
-              key: const Key('current-month'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15,
-                  fontWeight: FontWeight.w700))),
+          Expanded(child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.calendar_month_outlined, color: _accent, size: 19),
+              const SizedBox(width: 8),
+              Flexible(child: Text(_monthDisplay(_month),
+                key: const Key('current-month'),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15,
+                    fontWeight: FontWeight.w700))),
+            ],
+          )),
           IconButton(
             key: const Key('next-month'),
             tooltip: _lang('الشهر التالي', 'Next month'),
@@ -674,22 +702,64 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Widget _hero(MonthTotals totals) => InkWell(
     key: const Key('total-card'),
     onTap: () => _goTo(1, filter: _Filter.withdrawal),
-    child: _panel(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_lang('مصروفاتك', 'Your expenses'),
-          style: TextStyle(color: _mutedText, fontSize: 13)),
-        const SizedBox(height: 5),
-        Row(textDirection: TextDirection.ltr, children: [
-          Flexible(child: Text(_money(totals.withdrawal),
-            key: const Key('total-deposit'),
-            textDirection: TextDirection.ltr,
-            style: TextStyle(color: _ink,
-              fontSize: 30, fontWeight: FontWeight.w800))),
-          const SizedBox(width: 8),
-          Text(_currencyCode,
-            style: TextStyle(fontSize: 12, color: _mutedText)),
-        ]),
+    borderRadius: BorderRadius.circular(26),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 17),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: widget.isDark
+              ? [const Color(0xFF1F5782), const Color(0xFF0B2C50)]
+              : [const Color(0xFF8FBFDF), const Color(0xFFD7EAFB)],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: _line, width: 0.9),
+        boxShadow: [BoxShadow(
+          color: widget.isDark
+              ? const Color(0x66031933) : const Color(0x335A93C0),
+          blurRadius: 22, offset: const Offset(0, 9)),
+        ],
+      ),
+      child: Row(children: [
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_lang('مصروفاتك', 'Your expenses'),
+              style: TextStyle(color: _ink,
+                fontWeight: FontWeight.w700, fontSize: 14)),
+            const SizedBox(height: 9),
+            Row(mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.ltr,
+              children: [
+                Flexible(child: Text(_money(totals.withdrawal),
+                  key: const Key('total-deposit'),
+                  textDirection: TextDirection.ltr,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _ink,
+                    fontSize: 32, fontWeight: FontWeight.w800))),
+                const SizedBox(width: 8),
+                Text(_currencyCode, style: TextStyle(
+                  color: _ink, fontSize: 14,
+                  fontWeight: FontWeight.w700)),
+              ]),
+          ],
+        )),
+        const SizedBox(width: 8),
+        Container(
+          width: 64, height: 66,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              _accent.withValues(alpha: 0.32),
+              _accent.withValues(alpha: 0.08),
+            ]),
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(
+              color: _accent.withValues(alpha: 0.38)),
+          ),
+          child: Icon(Icons.account_balance_wallet_rounded,
+            color: _ink, size: 36),
+        ),
       ]),
     ),
   );
@@ -698,30 +768,39 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       required IconData icon, required Color color, required VoidCallback onTap,
       Key? key}) => Expanded(child: InkWell(
     key: key,
-    borderRadius: BorderRadius.circular(17),
+    borderRadius: BorderRadius.circular(22),
     onTap: onTap,
     child: _panel(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 11),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 5),
-            Expanded(child: Text(title, style: const TextStyle(
-              fontWeight: FontWeight.w700, fontSize: 12,
-            ))),
+            Container(
+              height: 31, width: 31,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.18),
+                shape: BoxShape.circle),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 4),
+            Expanded(child: Text(title,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: _mutedText,
+                fontWeight: FontWeight.w700, fontSize: 11))),
           ]),
-          const SizedBox(height: 5),
+          const SizedBox(height: 10),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,
             child: Text(value, textDirection: TextDirection.ltr,
-                style: TextStyle(fontWeight: FontWeight.w800,
-                    fontSize: 17, color: color)),
+              style: TextStyle(fontWeight: FontWeight.w800,
+                fontSize: 19, color: _ink)),
           ),
-          const SizedBox(height: 4),
-          Text(_currencyCode, style: TextStyle(fontSize: 10, color: _mutedText)),
+          const SizedBox(height: 3),
+          Text(_currencyCode, style: TextStyle(
+            fontSize: 10, color: _mutedText)),
         ],
       ),
     ),
