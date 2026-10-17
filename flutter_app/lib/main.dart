@@ -126,6 +126,7 @@ class _AuthGateState extends State<_AuthGate> {
         : FinanceShell(
             key: ValueKey('user_${user.id}'),
             store: EncryptedTransactionStore(accountScope: user.id),
+            cloudEnabled: true,
             isDark: widget.isDark,
             onToggleTheme: widget.onToggleTheme,
             onSignOut: () {
