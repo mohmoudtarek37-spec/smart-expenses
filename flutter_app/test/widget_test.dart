@@ -367,6 +367,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('المعاملات'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('غداء'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('غداء'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('transaction-amount')), '82.25');
@@ -377,6 +379,8 @@ void main() {
     expect(store.entries, hasLength(1));
     expect(store.entries.single.id, 'existing');
     expect(store.entries.single.amount, 82.25);
+    await tester.ensureVisible(find.text('غداء'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('غداء'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('delete-transaction')));
