@@ -11,6 +11,8 @@ class FinanceEntry {
     this.source = '',
     this.note = '',
     this.excluded = false,
+    this.linkedInstallment = '',
+    this.installmentCreated = false,
   }) : assert(amount >= 0);
 
   final String id;
@@ -21,6 +23,15 @@ class FinanceEntry {
   final String source;
   final String note;
   final bool excluded;
+  final String linkedInstallment;
+  final bool installmentCreated;
+
+  FinanceEntry copyWith({String? linkedInstallment, bool? installmentCreated}) => FinanceEntry(
+    id: id, type: type, amount: amount, date: date, category: category,
+    source: source, note: note, excluded: excluded,
+    linkedInstallment: linkedInstallment ?? this.linkedInstallment,
+    installmentCreated: installmentCreated ?? this.installmentCreated,
+  );
 
   String get title => note.trim().isNotEmpty
       ? note.trim()
@@ -43,6 +54,8 @@ class FinanceEntry {
       'source': source,
       'note': note,
       'excluded': excluded,
+      'linkedInstallment': linkedInstallment,
+      'installmentCreated': installmentCreated,
     };
   }
 
@@ -70,6 +83,14 @@ class FinanceEntry {
       if (field is! String) throw const FormatException('Invalid text field');
       return field;
     }
+    if (value['linkedInstallment'] != null &&
+        value['linkedInstallment'] is! String) {
+      throw const FormatException('Invalid installment link');
+    }
+    if (value['installmentCreated'] != null &&
+        value['installmentCreated'] is! bool) {
+      throw const FormatException('Invalid installment-created flag');
+    }
     if (value['excluded'] != null && value['excluded'] is! bool) {
       throw const FormatException('Invalid exclusion flag');
     }
@@ -82,6 +103,8 @@ class FinanceEntry {
       source: readText('source'),
       note: readText('note'),
       excluded: value['excluded'] == true,
+      linkedInstallment: readText('linkedInstallment'),
+      installmentCreated: value['installmentCreated'] == true,
     );
   }
 }
