@@ -246,15 +246,15 @@ class _SignInPageState extends State<_SignInPage> {
                   'وبعدها ارجع وسجل دخول.'
               : 'تم إنشاء الحساب وتسجيل الدخول بنجاح.';
         });
+        if (result.session != null && mounted) {
+          Navigator.of(context).pop();
+        }
       } else {
         await auth.signInWithPassword(
           email: email, password: password,
         ).timeout(const Duration(seconds: 25));
         if (mounted) {
-          setState(() {
-            _statusIsError = false;
-            _status = 'تم تسجيل الدخول بنجاح.';
-          });
+          Navigator.of(context).pop();
         }
       }
     } on TimeoutException {
@@ -297,6 +297,15 @@ class _SignInPageState extends State<_SignInPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('الحساب والتسجيل'),
+        leading: IconButton(
+          key: const Key('close-auth'),
+          tooltip: 'الرجوع للتطبيق',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -311,7 +320,8 @@ class _SignInPageState extends State<_SignInPage> {
                 Text('حساباتي', textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineLarge),
                 const SizedBox(height: 8),
-                const Text('سجّل دخولك علشان تحافظ على حسابك.',
+                const Text('التسجيل اختياري. استخدم حساباتي كضيف عادي، '
+                    'وسجّل لو حبيت تستخدم المزامنة بين الأجهزة.',
                     textAlign: TextAlign.center),
                 if (_status.isNotEmpty)
                   Semantics(
@@ -373,6 +383,13 @@ class _SignInPageState extends State<_SignInPage> {
                   style: TextStyle(fontSize: 12, color: Colors.white70),
                 ),
                 if (_busy) const LinearProgressIndicator(),
+                const SizedBox(height: 15),
+                TextButton.icon(
+                  key: const Key('continue-as-guest'),
+                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('الرجوع لحساباتي بدون تسجيل'),
+                ),
               ],
             ),
           ),
