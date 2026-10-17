@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
+import 'theme/hesabaty_theme.dart';
 import 'security/device_biometric_lock.dart';
 import 'screens/signup_page.dart';
 import 'auth/auth_feedback.dart';
@@ -14,7 +15,7 @@ import 'finance/transaction_store.dart';
 
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
 const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-const _accent = Color(0xFFD4A600);
+const _accent = Color(0xFF85CFFF);
 const _requireAccount = bool.fromEnvironment('REQUIRE_ACCOUNT',
     defaultValue: false);
 const _mobileAuthCallback = 'io.github.mohmoudtarek37spec.hesabaty://auth-callback';
@@ -47,7 +48,7 @@ class HesabatyApp extends StatefulWidget {
 
 class _HesabatyAppState extends State<HesabatyApp> {
   StreamSubscription<AuthState>? _rootAuthSubscription;
-  bool _isDark = false;
+  bool _isDark = true;
   bool _isEnglish = false;
   static const _languageKey = 'hesabaty_flutter_language';
   static const _themeKey = 'hesabaty_flutter_theme_dark';
@@ -143,24 +144,8 @@ class _HesabatyAppState extends State<HesabatyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white,
-        colorScheme: const ColorScheme.light(
-          primary: _accent,
-          surface: Colors.white,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0D0E14),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFFE55D),
-          surface: Color(0xFF1B1C26),
-        ),
-      ),
+      theme: HesabatyTheme.create(dark: false),
+      darkTheme: HesabatyTheme.create(dark: true),
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       home: Directionality(
         textDirection: _isEnglish ? TextDirection.ltr : TextDirection.rtl,
