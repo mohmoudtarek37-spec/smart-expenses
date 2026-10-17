@@ -2138,12 +2138,24 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       appBar: AppBar(
         backgroundColor: _background,
         toolbarHeight: 75,
-        titleSpacing: 18,
+        leadingWidth: 53,
+        leading: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 12),
+          child: Center(child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset('branding/hesabaty_launcher.webp',
+                width: 38, height: 38, fit: BoxFit.contain,
+                semanticLabel: 'Hesabaty wallet logo'),
+          )),
+        ),
+        titleSpacing: 6,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_lang('أهلًا بيك 👋', 'Welcome 👋'),
-                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
             Text(_lang('فلوسك في مكان واحد', 'Your money in one place'),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, color: _mutedText)),
           ],
         ),
