@@ -8,6 +8,8 @@ import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/backup_codec.dart';
 import '../finance/analytics_models.dart';
+import '../finance/monthly_report.dart';
+import 'package:printing/printing.dart';
 import '../finance/cloud_sync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../finance/finance_models.dart';
@@ -65,6 +67,7 @@ class _FinanceShellState extends State<FinanceShell> {
   bool _cloudBusy = false;
   bool _loading = false;
   bool _saving = false;
+  bool _reportBusy = false;
   String? _loadError;
   int _selected = 0;
   _Filter _filter = _Filter.all;
@@ -354,6 +357,24 @@ class _FinanceShellState extends State<FinanceShell> {
       _filter = filter;
       _search.clear();
     });
+  }
+
+  Future<void> _exportMonthlyReport() async {
+    if (_reportBusy || _loading || _saving) return;
+    setState(() => _reportBusy = true);
+    try {
+      final report = MonthlyReportData(month: _month, allEntries: _entries);
+      final bytes = await MonthlyReportPdf.create(report);
+      if (!mounted) return;
+      await Printing.sharePdf(bytes: bytes, filename: report.filename);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر إنشاء تقرير PDF أو مشاركته على هذا الجهاز.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _reportBusy = false);
+    }
   }
 
   void _comingSoon(String feature) {
@@ -650,7 +671,7 @@ class _FinanceShellState extends State<FinanceShell> {
         _monthPicker(),
         Align(alignment: Alignment.centerRight,
           child: _action('تحميل تقرير PDF للشهر', Icons.download_outlined,
-              () => _comingSoon('تقارير PDF'))),
+              () => _exportMonthlyReport())),
         _sectionTitle('المصروفات حسب التصنيف',
             action: 'التفاصيل ←', onTap: () => _goTo(3)),
         _categoryList(categories, totals),
@@ -696,7 +717,7 @@ class _FinanceShellState extends State<FinanceShell> {
           _action('استيراد SMS', Icons.sms_outlined,
               () => _comingSoon('استيراد SMS')),
           _action('تقرير PDF', Icons.download,
-              () => _comingSoon('تقرير PDF')),
+              () => _exportMonthlyReport()),
           _action('معاملة يدوية', Icons.add,
               () => _editTransaction()),
         ]),
