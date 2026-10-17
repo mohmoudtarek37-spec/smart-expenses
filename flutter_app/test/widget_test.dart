@@ -55,6 +55,60 @@ void main() {
     expect(find.text('Category'), findsOneWidget);
   });
 
+  testWidgets('account profile saves an optional username without login',
+      (WidgetTester tester) async {
+    final store = _WidgetLedgerStore();
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+        child: FinanceShell(store: store, onOpenAuth: () {})),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-action')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('guest-account-status')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profile-settings')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile-photo')), findsOneWidget);
+    expect(find.byKey(const Key('profile-phone')), findsOneWidget);
+    expect(find.byKey(const Key('profile-birthday')), findsOneWidget);
+    expect(find.byKey(const Key('profile-gender')), findsOneWidget);
+    expect(find.byKey(const Key('profile-biometric')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('profile-name')), 'Test user');
+    await tester.ensureVisible(find.byKey(const Key('profile-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-save')));
+    await tester.pumpAndSettle();
+    expect((store.ledger.prefs['profile'] as Map)['name'], 'Test user');
+  });
+
+  testWidgets('erase all data is behind an explicit typed confirmation',
+      (WidgetTester tester) async {
+    final store = _WidgetLedgerStore();
+    store.ledger = InstallmentLedger(entries: [
+      FinanceEntry(id: 'safe', type: EntryType.deposit, amount: 150,
+          date: DateTime.now(), category: 'Salary'),
+    ], installments: const []);
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+        child: FinanceShell(store: store)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-action')));
+    await tester.pumpAndSettle();
+    final erase = find.byKey(const Key('erase-all-data'));
+    await tester.ensureVisible(erase);
+    await tester.pumpAndSettle();
+    await tester.tap(erase);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('erase-confirm-button')), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('erase-confirm-button')));
+    expect(button.onPressed, isNull);
+    await tester.tap(find.text('إلغاء').last);
+    await tester.pumpAndSettle();
+    expect(store.ledger.entries.single.id, 'safe');
+  });
+
   testWidgets('HTML-style home and 4 tabs plus add action render',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
