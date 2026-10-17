@@ -370,8 +370,7 @@ class _SignInPageState extends State<_SignInPage> {
         setState(() {
           _statusIsError = true;
           _status = 'السيرفر اتأخر في الرد. ممكن يكون الطلب وصل؛ '
-              'راجع إيميلك قبل ما تعيد المحاولة، '
-              'واتأكد من اتصال الإنترنت.';
+              'اتأكد من الإنترنت، وجرب تسجيل الدخول قبل ما تعيد إنشاء الحساب.';
         });
       }
     } on SocketException {
