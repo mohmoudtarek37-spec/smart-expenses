@@ -827,8 +827,9 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(children: [
           Container(height: 44, width: 44,
-              decoration: BoxDecoration(color: _alt,
-                  borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(14)),
               child: Icon(icon, color: color)),
           const SizedBox(width: 11),
           Expanded(child: Column(
@@ -949,11 +950,39 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         ]),
         _monthPicker(),
         _dueNoticesPanel(),
-        OutlinedButton.icon(
+        InkWell(
           key: const Key('category-expenses-action'),
-          onPressed: () => _goTo(3),
-          icon: const Icon(Icons.pie_chart_outline),
-          label: Text(_lang('المصروفات حسب التصنيف', 'Expenses by category')),
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => _goTo(3),
+          child: _panel(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 11),
+            child: Row(children: [
+              Container(
+                height: 39, width: 39,
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.19),
+                  shape: BoxShape.circle),
+                child: Icon(Icons.pie_chart_outline, color: _accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_lang('المصروفات حسب التصنيف',
+                       'Expenses by category'),
+                    style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 3),
+                  Text(_lang('اعرض مصروفاتك حسب الفئات',
+                      'Explore your spending categories'),
+                    style: TextStyle(
+                      fontSize: 11, color: _mutedText)),
+                ],
+              )),
+              Icon(Icons.chevron_left, color: _accent),
+            ]),
+          ),
         ),
         _sectionTitle(_lang('المعاملات الأخيرة', 'Recent transactions'),
             action: _lang('عرض الكل ←', 'View all →'), onTap: () => _goTo(1)),
@@ -2092,10 +2121,23 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   }
 
   Widget _settingsHeading(String ar, String en) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 4, 4, 9),
+    padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
     child: Text(_lang(ar, en),
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      style: TextStyle(color: _ink,
+        fontSize: 16, fontWeight: FontWeight.w800)),
   );
+
+  MemoryImage? _profilePhoto() {
+    final profile = _prefs['profile'];
+    if (profile is! Map) return null;
+    final photo = profile['photo']?.toString() ?? '';
+    if (photo.isEmpty) return null;
+    try {
+      return MemoryImage(base64Decode(photo));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Widget _settings() => ListView(
     key: const Key('settings-page'),
@@ -2105,22 +2147,39 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
       const SizedBox(height: 14),
       _settingsHeading('الحساب', 'Account'),
-      _panel(child: ListTile(
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: ListTile(
         key: const Key('profile-settings'),
-        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+        leading: CircleAvatar(
+          backgroundColor: _accent.withValues(alpha: 0.20),
+          backgroundImage: _profilePhoto(),
+          child: _profilePhoto() == null
+              ? Icon(Icons.person_outline, color: _accent)
+              : null,
+        ),
         title: Text(_displayName),
         subtitle: Text(_displayName),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(_lang('الخطة المجانية', 'Free plan'),
-            style: TextStyle(color: _mutedText, fontSize: 12)),
-          const SizedBox(width: 6),
-          const Icon(Icons.chevron_right),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: _accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _accent.withValues(alpha: 0.27)),
+            ),
+            child: Text(_lang('الخطة المجانية', 'Free plan'),
+              style: TextStyle(color: _accent, fontSize: 11,
+                fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right, color: _accent),
         ]),
         onTap: _editable ? _openAccountProfile : null,
       )),
       const SizedBox(height: 18),
       _settingsHeading('فلوسك', 'Your money'),
-      _panel(child: Column(children: [
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: Column(children: [
         ListTile(
           key: const Key('currency-settings'),
           leading: const Icon(Icons.currency_exchange),
@@ -2149,7 +2208,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       ])),
       const SizedBox(height: 18),
       _settingsHeading('التفضيلات والتنبيهات', 'Preferences & alerts'),
-      _panel(child: ListTile(
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: ListTile(
         leading: const Icon(Icons.notifications_outlined),
         title: Text(_lang('تنبيهات الأقساط', 'Installment alerts')),
         subtitle: Text(_lang('مواعيد الاستحقاق وتقويم الهاتف',
@@ -2158,7 +2217,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       )),
       const SizedBox(height: 18),
       _settingsHeading('البيانات', 'Data'),
-      _panel(child: Column(children: [
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: Column(children: [
         ListTile(
           key: const Key('invite-friends'),
           leading: const Icon(Icons.share_outlined),
@@ -2208,7 +2267,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       ])),
       if (widget.cloudEnabled && widget.guestStore is LedgerStore) ...[
         const SizedBox(height: 12),
-        _panel(child: ListTile(
+        _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: ListTile(
           key: const Key('import-guest-data'),
           leading: const Icon(Icons.move_to_inbox_outlined),
           title: Text(_lang('نقل بيانات الضيف لحسابي',
@@ -2218,7 +2277,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       ],
       const SizedBox(height: 18),
       _settingsHeading('الدعم', 'Support'),
-      _panel(child: Column(children: [
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: Column(children: [
         ListTile(
           key: const Key('monthly-report-settings'),
           leading: const Icon(Icons.picture_as_pdf_outlined),
@@ -2264,7 +2323,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         ),
       ])),
       const SizedBox(height: 20),
-      _panel(child: Column(children: [
+      _panel(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), child: Column(children: [
         if (widget.cloudEnabled)
           ListTile(
             key: const Key('logout-settings'),
