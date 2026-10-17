@@ -12,6 +12,7 @@ import 'finance/transaction_store.dart';
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
 const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 const _accent = Color(0xFFD4A600);
+const _mobileAuthCallback = 'io.github.mohmoudtarek37spec.hesabaty://auth-callback';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +114,7 @@ class _AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<_AuthGate> {
   late final StreamSubscription<AuthState> _subscription;
+  bool _openingRecovery = false;
   late final TransactionStore _guestStore;
 
   @override
@@ -121,8 +123,20 @@ class _AuthGateState extends State<_AuthGate> {
     _guestStore = widget.guestStore ??
         EncryptedTransactionStore(accountScope: 'guest');
     _subscription = Supabase.instance.client.auth.onAuthStateChange
-        .listen((_) {
-      if (mounted) setState(() {});
+        .listen((data) {
+      if (!mounted) return;
+      setState(() {});
+      if (data.event == AuthChangeEvent.passwordRecovery &&
+          !_openingRecovery) {
+        _openingRecovery = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await Navigator.of(context).push<void>(MaterialPageRoute(
+            builder: (_) => const _PasswordRecoveryPage(),
+          ));
+          _openingRecovery = false;
+        });
+      }
     });
   }
 
@@ -185,13 +199,27 @@ class _SignInPage extends StatefulWidget {
 class _SignInPageState extends State<_SignInPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  StreamSubscription<AuthState>? _loginSubscription;
   bool _busy = false;
   bool _pendingConfirmation = false;
   String _status = '';
   bool _statusIsError = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loginSubscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen((data) {
+      if (mounted && data.event == AuthChangeEvent.signedIn &&
+          Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _loginSubscription?.cancel();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -296,6 +324,46 @@ class _SignInPageState extends State<_SignInPage> {
     }
   }
 
+  Future<void> _googleSignIn() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusIsError = false;
+      _status = 'جاري فتح تسجيل الدخول بحساب Google...';
+    });
+    try {
+      final opened = await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google, redirectTo: _mobileAuthCallback,
+      );
+      if (!mounted) return;
+      if (!opened) {
+        setState(() {
+          _statusIsError = true;
+          _status = 'تعذر فتح تسجيل الدخول بجوجل. راجع إعدادات Google في Supabase.';
+        });
+      } else {
+        setState(() {
+          _status = 'كمّل الموافقة في متصفح Google. '
+              'هترجع لحساباتي بعد تسجيل الدخول.';
+        });
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = AuthFeedback.serverError(e.message);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'Google Login محتاج تفعيل Google OAuth وروابط الرجوع في Supabase.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _recoverPassword() async {
     if (_busy) return;
     final email = _email.text.trim();
@@ -313,7 +381,7 @@ class _SignInPageState extends State<_SignInPage> {
     });
     try {
       await Supabase.instance.client.auth
-          .resetPasswordForEmail(email)
+          .resetPasswordForEmail(email, redirectTo: _mobileAuthCallback)
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
@@ -492,9 +560,15 @@ class _SignInPageState extends State<_SignInPage> {
                       : 'عندي حساب ولم يصلني تأكيد البريد'),
                 ),
                 const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('google-sign-in'),
+                  onPressed: _busy ? null : _googleSignIn,
+                  icon: const Icon(Icons.account_circle_outlined),
+                  label: const Text('المتابعة باستخدام Google'),
+                ),
                 const Text(
-                  'تسجيل الدخول باستخدام Google لسه قيد الإعداد. '
-                  'إنشاء الحساب بالإيميل ممكن يحتاج تأكيد الرسالة قبل الدخول.',
+                  'تسجيل Google يحتاج تفعيل مقدم الخدمة في Supabase. '
+                  'تسجيل الإيميل يحتاج تفعيل رسالة التأكيد.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12),
                 ),
@@ -515,3 +589,91 @@ class _SignInPageState extends State<_SignInPage> {
   }
 }
 
+
+
+class _PasswordRecoveryPage extends StatefulWidget {
+  const _PasswordRecoveryPage();
+
+  @override
+  State<_PasswordRecoveryPage> createState() => _PasswordRecoveryPageState();
+}
+
+class _PasswordRecoveryPageState extends State<_PasswordRecoveryPage> {
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _busy = false;
+  String _message = '';
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updatePassword() async {
+    if (_busy) return;
+    if (_password.text.length < 8 ||
+        _password.text != _confirm.text) {
+      setState(() => _message =
+          'كلمة المرور لازم تكون 8 حروف على الأقل ومتطابقة في الخانتين.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _message = '';
+    });
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _password.text),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تم تحديث كلمة المرور. تقدر تدخل بيها بعد كده.'),
+      ));
+      Navigator.of(context).pop();
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _message = AuthFeedback.serverError(e.message));
+    } catch (_) {
+      if (mounted) setState(() => _message =
+          'تعذر تغيير كلمة المرور. اطلب رابط استعادة جديد.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('إعادة تعيين كلمة المرور')),
+    body: Center(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('أدخل كلمة مرور جديدة للحساب الذي أرسلت له '
+              'رسالة الاستعادة.'),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('recovery-password'),
+            controller: _password, obscureText: true,
+            decoration: const InputDecoration(labelText: 'كلمة المرور الجديدة'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('recovery-confirm'),
+            controller: _confirm, obscureText: true,
+            decoration: const InputDecoration(labelText: 'تأكيد كلمة المرور'),
+          ),
+          const SizedBox(height: 12),
+          if (_message.isNotEmpty) Text(_message),
+          FilledButton(
+            key: const Key('recovery-save'),
+            onPressed: _busy ? null : _updatePassword,
+            child: const Text('حفظ كلمة المرور'),
+          ),
+          if (_busy) const LinearProgressIndicator(),
+        ]),
+      ),
+    )),
+  );
+}
