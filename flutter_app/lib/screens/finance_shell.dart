@@ -182,7 +182,41 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           ),
         ],
       ));
-    if (value == null || !mounted || !_editable || value == _currencyCode) return;
+    if (value == null || !mounted || !_editable || value == _currencyCode) {
+      return;
+    }
+    // Every amount in the ledger is a nominal value in one base currency.
+    // Changing only its symbol must never look like a real FX conversion.
+    if (_entries.isNotEmpty || _plans.isNotEmpty) {
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(_lang('تغيير العملة', 'Change currency')),
+          content: Text(_lang(
+            'عندك معاملات أو أقساط مسجلة بعملة $_currencyCode. '
+            'لو اخترت $value، الأرقام نفسها مش هتتحول بسعر الصرف؛ '
+            'هيتغير رمز العملة فقط في كل المعاملات والتقارير. '
+            'وافق بس لو كل المبالغ أصلًا محسوبة بالعملة الجديدة.',
+            'You have existing transactions or installments in $_currencyCode. '
+            'Switching to $value will NOT convert any amount with exchange rates; '
+            'it only changes the currency label across transactions and reports. '
+            'Continue only if your amounts are already in the new currency.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_lang('إلغاء', 'Cancel')),
+            ),
+            FilledButton(
+              key: const Key('confirm-currency-relabel'),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(_lang('تغيير الرمز فقط', 'Change label only')),
+            ),
+          ],
+        ),
+      );
+      if (approved != true || !mounted || !_editable) return;
+    }
     await _applyLedger(InstallmentLedger(
       entries: _entries, installments: _plans,
       customCategories: _customCategories,
