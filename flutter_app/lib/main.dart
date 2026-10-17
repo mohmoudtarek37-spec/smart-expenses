@@ -14,7 +14,7 @@ Future<void> main() async {
   if (configured) {
     await Supabase.initialize(
       url: _backendUrl,
-      anonKey: _publishableKey,
+      publishableKey: _publishableKey,
     );
   }
   runApp(const HesabatyApp(backendConfigured: configured));
