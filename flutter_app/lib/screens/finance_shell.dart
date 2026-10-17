@@ -907,17 +907,17 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           child: _action(_lang('تحميل تقرير PDF للشهر', 'Download monthly PDF'), Icons.download_outlined,
               () => _exportMonthlyReport())),
         _sectionTitle(_lang('المصروفات حسب التصنيف', 'Expenses by category'),
-            action: 'التفاصيل ←', onTap: () => _goTo(3)),
+            action: _lang('التفاصيل ←', 'Details →'), onTap: () => _goTo(3)),
         _categoryList(categories, totals),
         _sectionTitle(_lang('آخر المعاملات', 'Recent transactions'),
-            action: 'عرض الكل ←', onTap: () => _goTo(1)),
+            action: _lang('عرض الكل ←', 'View all →'), onTap: () => _goTo(1)),
         _entryList(recent,
-            emptyMessage: 'أضف أول معاملة أو استورد رسالة SMS'),
+            emptyMessage: _lang('أضف أول معاملة أو استورد رسالة SMS', 'Add a transaction or import SMS')),
         const SizedBox(height: 13),
         Wrap(spacing: 8, children: [
           _action(_lang('استيراد رسائل SMS', 'Import SMS messages'), Icons.sms_outlined,
               () => _importSmsFile()),
-          _action('الأقساط', Icons.calendar_month_outlined,
+          _action(_lang('الأقساط', 'Installments'), Icons.calendar_month_outlined,
               () => _goTo(2)),
         ]),
       ],
@@ -1329,7 +1329,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     final approved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تصدير نسخة احتياطية'),
+        title: Text(_lang('تصدير نسخة احتياطية', 'Export backup')),
         content: const Text(
           'ملف JSON غير مشفّر، وهيحتوي على أرقامك ورسائل البنك '
           'وصور الإيصالات لو موجودة. احفظه في مكان خاص وآمن '
@@ -1897,29 +1897,33 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             ListTile(
               key: const Key('account-status'),
               leading: const Icon(Icons.verified_user_outlined),
-              title: const Text('الحساب متصل'),
-              subtitle: Text(widget.accountEmail ?? 'تم تسجيل الدخول'),
+              title: Text(_lang('الحساب متصل', 'Connected account')),
+              subtitle: Text(widget.accountEmail ?? _lang('تم تسجيل الدخول', 'Signed in')),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text('بيانات الحساب منفصلة عن معاملات الضيف المحفوظة '
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(_lang('بيانات الحساب منفصلة عن معاملات الضيف المحفوظة '
                   'على نفس الموبايل. المزامنة اختيارية.',
-                  style: TextStyle(fontSize: 12)),
+                  'Your account data is separate from guest transactions. '
+                  'Cloud sync is optional.'),
+                  style: const TextStyle(fontSize: 12)),
             ),
           ] else ...[
-            const ListTile(
-              key: Key('guest-account-status'),
-              leading: Icon(Icons.person_outline),
-              title: Text('استخدام كضيف — بدون حساب'),
-              subtitle: Text('حساباتي شغال عادي، ومش مطلوب تسجيل الدخول.'),
+            ListTile(
+              key: const Key('guest-account-status'),
+              leading: const Icon(Icons.person_outline),
+              title: Text(_lang('استخدام كضيف — بدون حساب', 'Guest mode — no account')),
+              subtitle: Text(_lang('حساباتي شغال عادي، ومش مطلوب تسجيل الدخول.', 'Use Hesabaty without signing in.')),
             ),
             if (widget.onOpenAuth != null) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text('التسجيل اختياري للمزامنة. '
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(_lang('التسجيل اختياري للمزامنة. '
                     'معاملات الضيف بتفضل محفوظة على جهازك '
                     'ومش بتتنقل للحساب تلقائيًا.',
-                    style: TextStyle(fontSize: 12)),
+                    'An account is optional in this preview. Guest data '
+                    'stays on this device until you explicitly transfer it.'),
+                    style: const TextStyle(fontSize: 12)),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1927,14 +1931,14 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
                   key: const Key('login-from-settings'),
                   onPressed: widget.onOpenAuth,
                   icon: const Icon(Icons.login),
-                  label: const Text('تسجيل الدخول أو إنشاء حساب'),
+                  label: Text(_lang('تسجيل الدخول أو إنشاء حساب', 'Sign in or create an account')),
                 ),
               ),
             ] else
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text('المزامنة غير مفعلة في نسخة الاختبار دي.',
-                    style: TextStyle(fontSize: 12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(_lang('المزامنة غير مفعلة في نسخة الاختبار دي.', 'Cloud sync is not available in this preview.'),
+                    style: const TextStyle(fontSize: 12)),
               ),
           ],
           const Divider(),
@@ -1968,8 +1972,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         _panel(child: ListTile(
           key: const Key('import-guest-data'),
           leading: const Icon(Icons.move_to_inbox_outlined),
-          title: const Text('نقل بيانات الضيف لحسابي'),
-          subtitle: const Text('بموافقتك، من غير مسح النسخة الأصلية'),
+          title: Text(_lang('نقل بيانات الضيف لحسابي', 'Move guest data to my account')),
+          subtitle: Text(_lang('بموافقتك، من غير مسح النسخة الأصلية', 'With your consent, without deleting the original')),
           trailing: const Icon(Icons.chevron_left),
           onTap: _editable ? _importGuestData : null,
         )),
@@ -1979,8 +1983,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         _panel(child: ListTile(
           key: const Key('premium-settings'),
           leading: const Icon(Icons.workspace_premium_outlined),
-          title: const Text('حساباتي Premium'),
-          subtitle: const Text('الاشتراك عبر Google Play والتحقق من السيرفر'),
+          title: Text(_lang('حساباتي Premium', 'Hesabaty Premium')),
+          subtitle: Text(_lang('الاشتراك عبر Google Play والتحقق من السيرفر', 'Google Play subscription with server verification')),
           trailing: const Icon(Icons.chevron_left),
           onTap: () => Navigator.of(context).push<void>(
             MaterialPageRoute(builder: (_) => const PremiumPage()),
@@ -1991,18 +1995,20 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         _panel(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('الحساب السحابي',
+            Text(_lang('الحساب السحابي', 'Cloud account'),
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
             const SizedBox(height: 8),
-            const Text('مزامنة يدوية تجريبية. لن ندمج أو نستبدل '
+            Text(_lang('مزامنة يدوية تجريبية. لن ندمج أو نستبدل '
                 'بيانات جهازين مختلفين تلقائيًا.',
-                style: TextStyle(fontSize: 12)),
+                'Cloud sync is experimental. Conflicting versions '
+                'require manual review to prevent data loss.'),
+                style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               key: const Key('sync-cloud'),
               onPressed: _editable && !_cloudBusy ? _syncCloudNow : null,
               icon: const Icon(Icons.cloud_sync_outlined),
-              label: const Text('مراجعة ومزامنة حسابي الآن'),
+              label: Text(_lang('مراجعة ومزامنة حسابي الآن', 'Review and sync my account')),
             ),
             Text(_cloudQuotaLabel(),
                 key: const Key('cloud-quota-label'),
@@ -2017,11 +2023,13 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       _panel(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('النسخ الاحتياطية',
+          Text(_lang('النسخ الاحتياطية', 'Backups'),
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
           const SizedBox(height: 8),
-          Text('تصدير أو استيراد ملف JSON. الاستيراد بيستبدل بيانات '
+          Text(_lang('تصدير أو استيراد ملف JSON. الاستيراد بيستبدل بيانات '
               'النسخة التجريبية بعد ما تراجع عدد المعاملات والأقساط.',
+              'Export or import a JSON backup. Import replaces the current '
+              'data only after you review the records.'),
               style: TextStyle(color: _mutedText, fontSize: 12)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -2036,34 +2044,37 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             onPressed: _editable && widget.store is LedgerStore
                 ? _importBackup : null,
             icon: const Icon(Icons.file_upload_outlined),
-            label: const Text('استيراد نسخة من HTML أو Flutter'),
+            label: Text(_lang('استيراد نسخة من HTML أو Flutter', 'Import an HTML or Flutter backup')),
           ),
           if (widget.store is BackupRestorableStore)
             TextButton.icon(
               key: const Key('undo-backup-import'),
               onPressed: _editable ? _restoreBeforeLastImport : null,
               icon: const Icon(Icons.restore_outlined),
-              label: const Text('استعادة البيانات قبل آخر استيراد'),
+              label: Text(_lang('استعادة البيانات قبل آخر استيراد', 'Undo last backup import')),
             ),
           const SizedBox(height: 8),
-          const Text('تنبيه: ملف JSON غير مشفر. '
+          Text(_lang('تنبيه: ملف JSON غير مشفر. '
               'احفظه بعيدًا عن الآخرين، وما تعتمدش على النسخة الحالية '
               'كبديل لتطبيق حساباتي القديم.',
-              style: TextStyle(fontSize: 11)),
+              'Warning: JSON backup files are not encrypted. '
+              'Keep them private and do not rely on this preview '
+              'as your only copy.'),
+              style: const TextStyle(fontSize: 11)),
         ],
       )),
       const SizedBox(height: 16),
       _panel(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('التصنيفات المخصصة',
+          Text(_lang('التصنيفات المخصصة', 'Custom categories'),
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           for (final category in _customCategories)
             ListTile(
               title: Text(category),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline),
-                tooltip: 'حذف التصنيف',
+                tooltip: _lang('حذف التصنيف', 'Delete category'),
                 onPressed: _editable
                     ? () => _removeCustomCategory(category) : null,
               ),
@@ -2072,7 +2083,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             key: const Key('add-custom-category'),
             onPressed: _editable ? _addCustomCategory : null,
             icon: const Icon(Icons.add),
-            label: const Text('إضافة تصنيف جديد'),
+            label: Text(_lang('إضافة تصنيف جديد', 'Add a custom category')),
           ),
         ],
       )),
@@ -2081,7 +2092,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
         ListTile(
           key: const Key('privacy-policy-link'),
           leading: const Icon(Icons.privacy_tip_outlined),
-          title: const Text('سياسة الخصوصية'),
+          title: Text(_lang('سياسة الخصوصية', 'Privacy policy')),
           trailing: const Icon(Icons.open_in_new),
           onTap: () => _openLegalResource('privacy-policy.html'),
         ),
@@ -2089,14 +2100,14 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
           ListTile(
             key: const Key('request-account-deletion'),
             leading: const Icon(Icons.person_remove_outlined),
-            title: const Text('طلب حذف حسابي والبيانات المرتبطة بيه'),
-            subtitle: const Text('طلب آمن، مع التحقق من ملكية الحساب'),
+            title: Text(_lang('طلب حذف حسابي والبيانات المرتبطة بيه', 'Request account and data deletion')),
+            subtitle: Text(_lang('طلب آمن، مع التحقق من ملكية الحساب', 'Secure request with identity verification')),
             trailing: const Icon(Icons.open_in_new),
             onTap: _requestAccountDeletion,
           ),
       ])),
       const SizedBox(height: 16),
-      Text('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.',
+      Text(_lang('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.', 'Hesabaty 2.0 — Preview build, not the final release.'),
           style: TextStyle(color: _mutedText, fontSize: 12)),
     ],
   );
