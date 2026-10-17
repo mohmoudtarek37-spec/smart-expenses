@@ -57,10 +57,9 @@ class AnalyticsSummary {
   AnalyticsSummary({
     required FinanceSummary summary,
     required DateTime selectedMonth,
-    required DateTime today,
+    required this.today,
   }) : _summary = summary,
-       month = DateTime(selectedMonth.year, selectedMonth.month),
-       today = today;
+       month = DateTime(selectedMonth.year, selectedMonth.month);
 
   final FinanceSummary _summary;
   final DateTime month;
