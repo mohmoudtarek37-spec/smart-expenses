@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -46,6 +50,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
   late String _category;
   late String _source;
   late bool _excluded;
+  late String _receiptDataUrl;
 
   @override
   void initState() {
@@ -57,6 +62,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
         (_type == EntryType.withdrawal ? 'مشتريات' : 'إيداع');
     _source = original?.source ?? 'نقدي';
     _excluded = original?.excluded ?? false;
+    _receiptDataUrl = original?.receiptDataUrl ?? '';
     _amount = TextEditingController(
       text: original == null ? '' : original.amount.toStringAsFixed(2),
     );
@@ -98,6 +104,67 @@ class _TransactionEditorState extends State<TransactionEditor> {
     if (chosen != null && mounted) setState(() => _date = chosen);
   }
 
+  Future<void> _chooseReceipt() async {
+    try {
+      final selected = await openFile(acceptedTypeGroups: [
+        const XTypeGroup(label: 'صورة إيصال',
+            extensions: ['png', 'jpg', 'jpeg', 'webp'],
+            mimeTypes: ['image/png', 'image/jpeg', 'image/webp']),
+      ]);
+      if (selected == null || !mounted) return;
+      final data = await selected.readAsBytes();
+      if (!mounted) return;
+      if (data.isEmpty || data.length > 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('حجم صورة الإيصال لازم يكون أقل من 1 ميجابايت. '
+              'صغّرها قبل اختيارها.'),
+        ));
+        return;
+      }
+      String? mime;
+      if (data.length >= 4 && data[0] == 0x89 &&
+          data[1] == 0x50 && data[2] == 0x4e && data[3] == 0x47) {
+        mime = 'image/png';
+      } else if (data.length >= 3 && data[0] == 0xff &&
+          data[1] == 0xd8 && data[2] == 0xff) {
+        mime = 'image/jpeg';
+      } else if (data.length >= 12 &&
+          String.fromCharCodes(data.sublist(0, 4)) == 'RIFF' &&
+          String.fromCharCodes(data.sublist(8, 12)) == 'WEBP') {
+        mime = 'image/webp';
+      }
+      if (mime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('صيغة الصورة غير مدعومة. اختار PNG أو JPG أو WebP.'),
+        ));
+        return;
+      }
+      setState(() => _receiptDataUrl = 'data:' + mime! + ';base64,' + base64Encode(data));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر قراءة صورة الإيصال. البيانات القديمة لم تتغير.'),
+      ));
+    }
+  }
+
+  Widget _receiptPreview() {
+    if (_receiptDataUrl.isEmpty) return const SizedBox.shrink();
+    try {
+      final bytes = Uint8List.fromList(base64Decode(_receiptDataUrl.split(',').last));
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(bytes, height: 155, fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Text('تعذر عرض الصورة')),
+        ),
+      );
+    } catch (_) {
+      return const Text('تعذر عرض الصورة القديمة');
+    }
+  }
+
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final value = double.parse(_amount.text.replaceAll(',', '').trim());
@@ -113,7 +180,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
       note: _note.text.trim(),
       excluded: _excluded,
       originalMessage: widget.original?.originalMessage ?? '',
-      receiptDataUrl: widget.original?.receiptDataUrl ?? '',
+      receiptDataUrl: _receiptDataUrl,
       sender: widget.original?.sender ?? '',
       fingerprint: widget.original?.fingerprint ?? '',
       createdAt: widget.original?.createdAt ?? '',
@@ -235,6 +302,23 @@ class _TransactionEditorState extends State<TransactionEditor> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('attach-receipt'),
+                  onPressed: _chooseReceipt,
+                  icon: const Icon(Icons.receipt_long),
+                  label: Text(_receiptDataUrl.isEmpty
+                      ? 'إضافة صورة إيصال أو فاتورة'
+                      : 'تغيير صورة الإيصال'),
+                ),
+                _receiptPreview(),
+                if (_receiptDataUrl.isNotEmpty)
+                  TextButton.icon(
+                    key: const Key('remove-receipt'),
+                    onPressed: () => setState(() => _receiptDataUrl = ''),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('حذف صورة الإيصال'),
+                  ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   value: _excluded,
