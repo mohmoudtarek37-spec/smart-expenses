@@ -3,12 +3,19 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'finance_models.dart';
+import 'installment_models.dart';
 
-/// Transaction storage boundary. The current preview uses protected device
-/// storage; it does not sync to Supabase and is not a production finance DB.
+/// This local prototype is NOT cloud-synced, backed up, or production storage.
 abstract class TransactionStore {
   Future<List<FinanceEntry>> load();
   Future<void> save(List<FinanceEntry> entries);
+}
+
+/// Both entries and installment payment references live in one versioned
+/// snapshot so a payment cannot be saved separately from its withdrawal.
+abstract class LedgerStore implements TransactionStore {
+  Future<InstallmentLedger> loadLedger();
+  Future<void> saveLedger(InstallmentLedger ledger);
 }
 
 abstract class PrivateStringStorage {
@@ -31,9 +38,9 @@ class DevicePrivateStorage implements PrivateStringStorage {
       _storage.write(key: key, value: value);
 }
 
-/// Separate guest and each signed-in account by stable immutable identifiers.
-/// Never use email addresses as identity. Never merge accounts implicitly.
-class EncryptedTransactionStore implements TransactionStore {
+/// Per-account device encrypted preview storage. v1 transaction snapshots are
+/// opened without data loss and become v2 (transaction+installment) on write.
+class EncryptedTransactionStore implements LedgerStore {
   EncryptedTransactionStore({
     required String accountScope,
     PrivateStringStorage? storage,
@@ -45,43 +52,104 @@ class EncryptedTransactionStore implements TransactionStore {
   final PrivateStringStorage _storage;
 
   @override
-  Future<List<FinanceEntry>> load() async {
+  Future<List<FinanceEntry>> load() async => (await loadLedger()).entries;
+
+  @override
+  Future<InstallmentLedger> loadLedger() async {
     final raw = await _storage.read(_key);
-    if (raw == null) return <FinanceEntry>[];
-    // A damaged or future-version snapshot must NEVER be treated as empty,
-    // otherwise the next save could overwrite the user's actual records.
+    if (raw == null) {
+      return const InstallmentLedger(entries: [], installments: []);
+    }
+    // Corruption/future schema must never be treated as an empty snapshot.
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic> ||
-        decoded['schemaVersion'] != 1 ||
-        decoded['entries'] is! List) {
-      throw const FormatException('Unsupported transaction store format');
+        ![1, 2].contains(decoded['schemaVersion']) ||
+        decoded['entries'] is! List ||
+        (decoded['schemaVersion'] == 2 && decoded['installments'] is! List)) {
+      throw const FormatException('Unsupported ledger snapshot version');
     }
-    final result = <FinanceEntry>[];
-    final ids = <String>{};
+    final entries = <FinanceEntry>[];
+    final entryIds = <String>{};
     for (final value in decoded['entries'] as List) {
       if (value is! Map<String, dynamic>) {
         throw const FormatException('Invalid transaction object');
       }
       final entry = FinanceEntry.fromJson(value);
-      if (!ids.add(entry.id)) {
-        throw const FormatException('Duplicate transaction identifier');
+      if (!entryIds.add(entry.id)) {
+        throw const FormatException('Duplicate transaction ID');
       }
-      result.add(entry);
+      entries.add(entry);
     }
-    return result;
+    final installments = <InstallmentPlan>[];
+    final planIds = <String>{};
+    if (decoded['schemaVersion'] == 2) {
+      for (final item in decoded['installments'] as List) {
+        if (item is! Map<String, dynamic>) {
+          throw const FormatException('Invalid installment object');
+        }
+        final plan = InstallmentPlan.fromJson(item);
+        if (!planIds.add(plan.id)) {
+          throw const FormatException('Duplicate installment ID');
+        }
+        installments.add(plan);
+      }
+    }
+    _validateLinks(entries, installments);
+    return InstallmentLedger(entries: entries, installments: installments);
+  }
+
+  static void _validateLinks(
+      List<FinanceEntry> entries, List<InstallmentPlan> installments) {
+    final byId = {for (final e in entries) e.id: e};
+    final paymentReferences = <String>{};
+    for (final plan in installments) {
+      plan.validate();
+      for (final payment in plan.payments) {
+        if (!paymentReferences.add(payment.transactionId)) {
+          throw const FormatException('One transaction linked to two payments');
+        }
+        final entry = byId[payment.transactionId];
+        if (entry == null ||
+            entry.type != EntryType.withdrawal ||
+            entry.linkedInstallment != plan.id) {
+          throw const FormatException('Broken installment payment link');
+        }
+      }
+    }
+    // Transactions formerly linked to a deleted plan are allowed: historical
+    // records must remain, but they cannot be reused without explicit unlink.
   }
 
   @override
   Future<void> save(List<FinanceEntry> entries) async {
+    final existing = await loadLedger();
+    await saveLedger(InstallmentLedger(
+      entries: entries,
+      installments: existing.installments,
+    ));
+  }
+
+  @override
+  Future<void> saveLedger(InstallmentLedger ledger) async {
     final ids = <String>{};
-    for (final entry in entries) {
+    for (final entry in ledger.entries) {
       if (!ids.add(entry.id)) {
-        throw const FormatException('Duplicate transaction identifier');
+        throw const FormatException('Duplicate transaction ID');
       }
+      entry.toJson();
     }
+    final planIds = <String>{};
+    for (final plan in ledger.installments) {
+      if (!planIds.add(plan.id)) {
+        throw const FormatException('Duplicate installment ID');
+      }
+      plan.validate();
+    }
+    _validateLinks(ledger.entries, ledger.installments);
     final data = jsonEncode({
-      'schemaVersion': 1,
-      'entries': entries.map((e) => e.toJson()).toList(),
+      'schemaVersion': 2,
+      'entries': ledger.entries.map((e) => e.toJson()).toList(),
+      'installments': ledger.installments.map((p) => p.toJson()).toList(),
     });
     await _storage.write(_key, data);
   }
