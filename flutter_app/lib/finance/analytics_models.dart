@@ -40,12 +40,12 @@ class ExpenseComparison {
         ? ' (Preliminary comparison: this month is still in progress.)'
         : '';
     if (direction == ExpenseDirection.unchanged) {
-      return 'Expenses are unchanged from last month' + partial;
+      return 'Expenses are unchanged from last month$partial';
     }
     final movement = direction == ExpenseDirection.increased
         ? 'higher' : 'lower';
-    return 'Expenses are ' + movement + ' than last month by ' +
-        formatNumber(percentage!.abs()) + '%' + partial;
+    return 'Expenses are $movement than last month by '
+        '${formatNumber(percentage!.abs())}%$partial';
   }
 
   String describe(String Function(num) formatNumber) {
