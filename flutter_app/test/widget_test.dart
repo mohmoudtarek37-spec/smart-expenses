@@ -87,6 +87,15 @@ void main() {
     expect(find.text('test@example.com'), findsOneWidget);
     expect(find.byKey(const Key('login-from-settings')), findsNothing);
     expect(find.text('تسجيل الخروج'), findsOneWidget);
+    final settingsScroll = find.descendant(
+      of: find.byKey(const Key('settings-page')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('request-account-deletion')), 200,
+      scrollable: settingsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('request-account-deletion')), findsOneWidget);
     expect(find.byKey(const Key('privacy-policy-link')), findsOneWidget);
   });
