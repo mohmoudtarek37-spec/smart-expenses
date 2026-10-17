@@ -48,9 +48,12 @@ flutter build apk --debug
 ## Android signup and connectivity
 
 - After `flutter create --platforms=android,ios --org io.github.mohmoudtarek37spec .`, run `dart tool/ensure_android_internet.dart` before **release** and preview builds. CI does this automatically.
-- Flutter email/password signup uses the real Supabase backend. A successful signup may require an emailed confirmation before sign-in; the Auth page includes a resend action.
-- The Supabase project's default email delivery is not production SMTP. Configure a dedicated SMTP provider and verify email confirmation + actual Android signup on a device. Never disable email confirmation simply to mask sending errors.
-- OAuth / Google sign-in and deep-link callbacks remain pending. This change does **not** claim that production signup has been proven end to end.
+- The owner chose **direct email/password signup without a confirmation email** as the temporary rollout policy. In Supabase > Authentication > Sign In / Providers > Email, disable **Confirm Email**, leaving Email enabled and new signups allowed. This provider setting has to be saved by the project owner in the Supabase dashboard; the app cannot override it.
+- With Confirm Email disabled Supabase returns a session immediately. Flutter has been updated to explain that a null session means the server is **still** requiring verification, rather than asking users to wait for an email.
+- We do not need Resend or a purchased domain for **direct signup**. The public Gmail `matarekstudio@gmail.com` is a **support contact address**, not an authorized sender identity on Resend.
+- Without working outgoing SMTP, **forgot password** and email-change/recovery notifications will not reliably work. Preserve an alternate recovery strategy before launch.
+- Direct signup using an unverified address has identity risks (someone can register someone else's address); never link or merge Google accounts solely by an unverified email match. Add abuse prevention/rate limiting and test on real Android devices before public launch.
+- Google OAuth requires Google Cloud and Supabase provider configuration; it is not automatically enabled by switching off Confirm Email.
 
 ## استيراد رسائل SMS (Flutter preview)
 - زر "استيراد SMS" يفتح **ملفًا يختاره المستخدم يدويًا**: TXT (رسائل مفصولة بسطر ---)، CSV (أعمدة sender/date/body)، أو JSON (قائمة رسائل).

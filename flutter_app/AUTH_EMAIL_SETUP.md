@@ -1,51 +1,58 @@
-# Hesabaty 2.0 — Email signup and Resend SMTP setup
+# Hesabaty 2.0: Direct signup without email activation (owner decision)
 
-Status: NOT configured automatically.
-Supabase project reference: uusnulmlygtpgwecyuvc.
-Do not put SMTP API keys/passwords, Supabase secret/service-role keys or user
-account credentials in the public GitHub repo.
+Project: `uusnulmlygtpgwecyuvc`
 
-## Why email signup fails
-Supabase's default SMTP is intended for development. Without custom SMTP it
-only sends confirmation emails to pre-authorized members of your organization.
-Other addresses will get "Email address not authorized". Other possible
-problems: email signups disabled, internet connectivity, bad credentials or
-email confirmation not completed. On the latest server check there were
-0 users. Flutter CI alone cannot confirm signup.
+## Current rollout
 
-## Owner-only email setup
-1. At https://resend.com create a Resend account and add a sending domain
-   you own. Verify the DNS records (DKIM/SPF) until domain status Verified.
-   A shared gmail.com or github.io address is not an owned sending domain.
-2. Recommended: open https://supabase.com/partners/resend while signed into
-   Supabase, click Add integration, choose the Hesabaty project, and approve
-   the connection in the browser. The integration can provision credentials
-   and configure SMTP without handling API keys manually.
-3. Manual alternative: go to
-   https://supabase.com/dashboard/project/uusnulmlygtpgwecyuvc/auth/smtp
-   and enable Custom SMTP. Sender name Hesabaty. Sender address must be
-   no-reply@YOUR_VERIFIED_DOMAIN. Host smtp.resend.com, port 465,
-   user resend, password PRIVATE_RESEND_API_KEY.
-   Enter the password privately in Supabase settings only, never in chat
-   or GitHub.
-4. In Supabase Authentication > Providers > Email, enable email/password
-   signups, keep Confirm Email enabled, and verify valid URL configuration.
-   Do not disable confirmation to conceal missing SMTP configuration.
-5. Test a brand-new email on latest Android debug APK: Create account,
-   receive confirmation email, confirm it and sign in. Test the resend
-   confirmation link and then test a second account. Check Auth logs when
-   errors occur. Never use real financial data until cloud sync is verified.
-6. Security: confirm user_snapshots RLS isolates data per authenticated
-   account. Automatic safe sync and Google sign-in are separate open tasks.
+The product owner has decided to **skip email activation** and **postpone
+purchasing a domain**. Email/password signup should create a session
+immediately without requiring a confirmation message.
 
-Resend free plan at review: 3000 emails/month, 100/day, 3 verified domains.
-Supabase custom SMTP initially has a separate limit of 30 emails/hour.
+**Owner action required** (this cannot be changed by client code or SQL):
+1. Open https://supabase.com/dashboard/project/uusnulmlygtpgwecyuvc/auth/providers
+2. Open the Email provider settings.
+3. Keep Email sign-in **enabled** and new user signups **allowed**.
+4. Turn **Confirm Email OFF** and save.
+5. Install the latest Android preview and test signup with a new test address
+   owned by you. New signup should return both a user and an active session.
+6. Sign out/sign back in. Check that `auth.users` receives the test user
+   and cloud finance records remain separate across accounts.
+
+## Gmail / Resend
+
+- Temporary support email: `matarekstudio@gmail.com`, already publicly
+  listed in the app privacy policy. A Gmail address is NOT the same as a
+  custom-domain sender for Resend.
+- Resend can remain unused until a verified sending domain is purchased;
+  it is NOT required for **instant signup** when Confirm Email is off.
+- If email delivery is later needed without a purchased domain, use a
+  properly configured SMTP provider. Google's SMTP can use app passwords
+  with 2-step verification, subject to provider restrictions; a Gmail
+  password must NEVER be sent in chat or committed to GitHub.
+- Password reset, change-email security notifications and similar
+  actions still need functional transactional email delivery.
+
+## Security and product limitations
+
+Disabling Confirm Email is convenient but carries an identity-proof risk:
+anyone can reserve an email address they don't own. Supabase may mark the
+account email as confirmed even though ownership was never proven.
+
+*Never link/merge a Google OAuth identity to an existing password account
+solely because the unverified signup email matches.* Add abuse controls,
+and consider re-enabling verification when proper email delivery exists.
+Preserve Row Level Security and user-isolated encrypted local stores.
+Do not claim production auth is verified without real device tests.
 
 References:
-https://supabase.com/docs/guides/auth/auth-smtp
-https://resend.com/docs/send-with-supabase-smtp
-https://resend.com/docs/dashboard/domains/introduction
-https://supabase.com/partners/resend
+- https://supabase.com/docs/guides/auth/general-configuration
+- https://supabase.com/docs/guides/auth/passwords
+- https://supabase.com/docs/guides/auth/auth-smtp
+- https://supabase.com/docs/guides/troubleshooting/using-google-smtp-with-supabase-custom-smtp-ZZzU4Y
 
-STATUS: signup must still be tested end-to-end with a real Android device
-and an actual email; a successful APK does not prove it is fixed.
+## Future
+
+Once a domain is purchased and verified, enable custom SMTP in Supabase
+(Resend is a possible provider) and update the official support address.
+No change to users' existing account emails is required just to change
+the sender/support address.

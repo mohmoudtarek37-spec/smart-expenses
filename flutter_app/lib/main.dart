@@ -281,7 +281,6 @@ class _SignInPageState extends State<_SignInPage> {
   final _password = TextEditingController();
   StreamSubscription<AuthState>? _loginSubscription;
   bool _busy = false;
-  bool _pendingConfirmation = false;
   String _status = '';
   bool _statusIsError = false;
 
@@ -342,19 +341,18 @@ class _SignInPageState extends State<_SignInPage> {
         if (result.user == null) {
           setState(() {
             _statusIsError = true;
-            _status = 'السيرفر ما رجّعش تأكيد إنشاء الحساب. '
-                'متعيدش التسجيل بنفس البيانات قبل ما تراجع بريدك.';
+            _status = 'السيرفر ما أكدش إنشاء الحساب. '
+                'راجع إعداد Email Signups وسجلات Auth في Supabase.';
           });
           return;
         }
         setState(() {
           _statusIsError = false;
-          _pendingConfirmation = result.session == null;
           _status = result.session == null
-              ? 'طلب إنشاء الحساب اتقبل. افتح إيميلك واضغط على رابط '
-                  'التأكيد، وشوف Spam لو مش لاقي الرسالة، '
-                  'وبعدها ارجع وسجل دخول.'
-              : 'تم إنشاء الحساب وتسجيل الدخول بنجاح.';
+              ? 'السيرفر لسه بيطلب تأكيد البريد. '
+                  'علشان التسجيل المباشر، اقفل Confirm Email '
+                  'من إعدادات Supabase > Sign In / Providers > Email.'
+              : 'تم إنشاء الحساب وتسجيل الدخول مباشرة بنجاح.';
         });
         if (result.session != null && mounted) {
           if (Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -518,61 +516,6 @@ class _SignInPageState extends State<_SignInPage> {
     }
   }
 
-  Future<void> _resendConfirmation() async {
-    if (_busy) return;
-    final email = _email.text.trim();
-    if (!AuthFeedback.validEmail(email)) {
-      setState(() {
-        _statusIsError = true;
-        _status = 'اكتب بريدًا إلكترونيًا صحيحًا لإعادة إرسال التأكيد.';
-      });
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _statusIsError = false;
-      _status = 'جاري طلب رسالة تأكيد جديدة...';
-    });
-    try {
-      await Supabase.instance.client.auth.resend(
-        type: OtpType.signup,
-        email: email,
-      ).timeout(const Duration(seconds: 25));
-      if (!mounted) return;
-      setState(() {
-        _pendingConfirmation = true;
-        _status = 'تم قبول طلب إعادة إرسال التأكيد. راجع البريد وSpam. '
-            'لو الرسالة ما وصلتش، محتاجين نراجع إعدادات البريد في Supabase.';
-      });
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _statusIsError = true;
-        _status = AuthFeedback.serverError(error.message);
-      });
-    } on TimeoutException {
-      if (!mounted) return;
-      setState(() {
-        _statusIsError = true;
-        _status = 'السيرفر اتأخر. راجع البريد قبل ما تعيد الطلب.';
-      });
-    } on SocketException {
-      if (!mounted) return;
-      setState(() {
-        _statusIsError = true;
-        _status = 'تعذر الوصول إلى Supabase. راجع الإنترنت.';
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _statusIsError = true;
-        _status = 'تعذر إرسال التأكيد. حاول مرة أخرى أو راجع إعدادات البريد.';
-      });
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -666,13 +609,6 @@ class _SignInPageState extends State<_SignInPage> {
                   onPressed: _busy ? null : _recoverPassword,
                   child: Text(_lang('نسيت كلمة المرور؟', 'Forgot password?')),
                 ),
-                TextButton(
-                  key: const Key('resend-confirmation'),
-                  onPressed: _busy ? null : _resendConfirmation,
-                  child: Text(_pendingConfirmation
-                      ? _lang('لم تصلك الرسالة؟ إعادة إرسال التأكيد', 'Resend confirmation email')
-                      : _lang('عندي حساب ولم يصلني تأكيد البريد', 'No confirmation email received')),
-                ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   key: const Key('google-sign-in'),
@@ -680,11 +616,15 @@ class _SignInPageState extends State<_SignInPage> {
                   icon: const Icon(Icons.account_circle_outlined),
                   label: Text(_lang('المتابعة باستخدام Google', 'Continue with Google')),
                 ),
-                const Text(
-                  'تسجيل Google يحتاج تفعيل مقدم الخدمة في Supabase. '
-                  'تسجيل الإيميل يحتاج تفعيل رسالة التأكيد.',
+                Text(
+                  _lang(
+                    'إنشاء الحساب مباشر بدون إيميل تفعيل بعد إيقاف Confirm Email '
+                    'في Supabase. Google Login محتاج تفعيل مستقل.',
+                    'Email signup is instant once Confirm Email is disabled '
+                    'in Supabase. Google sign-in requires separate setup.',
+                  ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12),
                 ),
                 if (_busy) const LinearProgressIndicator(),
                 const SizedBox(height: 15),
