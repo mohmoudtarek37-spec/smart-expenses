@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
+import 'finance/transaction_store.dart';
 
 const _backendUrl = String.fromEnvironment('SUPABASE_URL');
 const _publishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
@@ -19,13 +20,18 @@ Future<void> main() async {
       publishableKey: _publishableKey,
     );
   }
-  runApp(const HesabatyApp(backendConfigured: configured));
+  runApp(HesabatyApp(
+    backendConfigured: configured,
+    guestStore: EncryptedTransactionStore(accountScope: 'guest'),
+  ));
 }
 
 class HesabatyApp extends StatefulWidget {
-  const HesabatyApp({super.key, this.backendConfigured = false});
+  const HesabatyApp({super.key, this.backendConfigured = false,
+      this.guestStore});
 
   final bool backendConfigured;
+  final TransactionStore? guestStore;
 
   @override
   State<HesabatyApp> createState() => _HesabatyAppState();
@@ -75,6 +81,7 @@ class _HesabatyAppState extends State<HesabatyApp> {
                 onToggleTheme: _toggleTheme,
               )
             : FinanceShell(
+                store: widget.guestStore,
                 isDark: _isDark,
                 onToggleTheme: _toggleTheme,
               ),
@@ -113,9 +120,12 @@ class _AuthGateState extends State<_AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return Supabase.instance.client.auth.currentUser == null
+    final user = Supabase.instance.client.auth.currentUser;
+    return user == null
         ? const _SignInPage()
         : FinanceShell(
+            key: ValueKey('user_${user.id}'),
+            store: EncryptedTransactionStore(accountScope: user.id),
             isDark: widget.isDark,
             onToggleTheme: widget.onToggleTheme,
             onSignOut: () {
