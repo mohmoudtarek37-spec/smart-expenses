@@ -22,6 +22,31 @@ void main() {
     expect(find.text('الرئيسية'), findsOneWidget);
   });
 
+  testWidgets('English mode translates finance content and transaction editor',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: Directionality(textDirection: TextDirection.ltr,
+        child: FinanceShell(
+          isEnglish: true, store: _WidgetLedgerStore(),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Total income'), findsOneWidget);
+    expect(find.text('Spending ratio'), findsOneWidget);
+    expect(find.text('Expenses by category'), findsOneWidget);
+    await tester.tap(find.text('Transactions').last);
+    await tester.pumpAndSettle();
+    expect(find.text('All income and expense transactions'), findsOneWidget);
+    expect(find.text('New transaction'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('add-transaction')));
+    await tester.pumpAndSettle();
+    expect(find.text('Add a transaction'), findsOneWidget);
+    expect(find.text('Amount (EGP)'), findsOneWidget);
+    expect(find.text('Category'), findsOneWidget);
+  });
+
   testWidgets('HTML-style home and 4 tabs plus add action render',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
