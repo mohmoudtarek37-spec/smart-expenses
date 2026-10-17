@@ -21,16 +21,34 @@ class TransactionEditResult {
 
 class TransactionEditor extends StatefulWidget {
   const TransactionEditor({super.key, this.original,
-      this.customCategories = const []});
+      this.customCategories = const [], this.isEnglish = false});
 
   final FinanceEntry? original;
   final List<String> customCategories;
+  final bool isEnglish;
 
   @override
   State<TransactionEditor> createState() => _TransactionEditorState();
 }
 
 class _TransactionEditorState extends State<TransactionEditor> {
+  String _tr(String ar, String en) => widget.isEnglish ? en : ar;
+
+  String _categoryDisplay(String value) {
+    if (!widget.isEnglish) return value;
+    const names = <String, String>{
+      'مشتريات': 'Shopping', 'مصاريف شحن': 'Shipping fees',
+      'اشتراكات': 'Subscriptions', 'كهرباء': 'Electricity',
+      'مياه': 'Water', 'مستلزمات بيت': 'Household',
+      'مصاريف شخصية': 'Personal', 'أقساط': 'Installments',
+      'مطاعم': 'Restaurants', 'صحة': 'Health',
+      'مواصلات': 'Transport', 'فواتير': 'Bills',
+      'أخرى': 'Other', 'راتب': 'Salary',
+      'تحويل وارد': 'Incoming transfer', 'إيداع': 'Deposit',
+    };
+    return names[value] ?? value;
+  }
+
   static const _expenseCategories = <String>[
     'مشتريات', 'مصاريف شحن', 'اشتراكات', 'كهرباء', 'مياه',
     'مستلزمات بيت', 'مصاريف شخصية', 'أقساط', 'مطاعم', 'صحة',
@@ -85,11 +103,12 @@ class _TransactionEditorState extends State<TransactionEditor> {
   String? _validateAmount(String? raw) {
     final numberText = (raw ?? '').replaceAll(',', '').trim();
     if (!RegExp(r'^\d{1,9}(?:\.\d{1,2})?$').hasMatch(numberText)) {
-      return 'اكتب مبلغًا صحيحًا أكبر من صفر، بحد أقصى رقمين بعد العلامة.';
+      return _tr('اكتب مبلغًا صحيحًا أكبر من صفر، بحد أقصى رقمين بعد العلامة.',
+          'Enter a valid amount with no more than two decimal places.');
     }
     final value = double.tryParse(numberText);
     if (value == null || !value.isFinite || value <= 0) {
-      return 'المبلغ لازم يكون أكبر من صفر.';
+      return _tr('المبلغ لازم يكون أكبر من صفر.', 'Amount must be greater than zero.');
     }
     return null;
   }
@@ -194,16 +213,17 @@ class _TransactionEditorState extends State<TransactionEditor> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف المعاملة؟'),
-        content: const Text('هيتم حذف المعاملة من بيانات النسخة التجريبية.'),
+        title: Text(_tr('حذف المعاملة؟', 'Delete transaction?')),
+        content: Text(_tr('هيتم حذف المعاملة من بيانات النسخة التجريبية.',
+          'This transaction will be deleted from local records.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(_tr('إلغاء', 'Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('تأكيد الحذف'),
+            child: Text(_tr('تأكيد الحذف', 'Delete')),
           ),
         ],
       ),
@@ -229,15 +249,19 @@ class _TransactionEditorState extends State<TransactionEditor> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.original == null ? 'إضافة معاملة جديدة' : 'تعديل المعاملة',
+                Text(widget.original == null
+                    ? _tr('إضافة معاملة جديدة', 'Add a transaction')
+                    : _tr('تعديل المعاملة', 'Edit transaction'),
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 20),
                 SegmentedButton<EntryType>(
-                  segments: const [
-                    ButtonSegment(value: EntryType.withdrawal, label: Text('سحب'),
-                        icon: Icon(Icons.north_east)),
-                    ButtonSegment(value: EntryType.deposit, label: Text('إيداع'),
-                        icon: Icon(Icons.south_west)),
+                  segments: [
+                    ButtonSegment(value: EntryType.withdrawal,
+                        label: Text(_tr('سحب', 'Expense')),
+                        icon: const Icon(Icons.north_east)),
+                    ButtonSegment(value: EntryType.deposit,
+                        label: Text(_tr('إيداع', 'Income')),
+                        icon: const Icon(Icons.south_west)),
                   ],
                   selected: {_type},
                   onSelectionChanged: (selected) => setState(() {
@@ -252,9 +276,9 @@ class _TransactionEditorState extends State<TransactionEditor> {
                   autofocus: widget.original == null,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
-                  decoration: const InputDecoration(
-                    labelText: 'المبلغ بالجنيه',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: _tr('المبلغ بالجنيه', 'Amount (EGP)'),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: _validateAmount,
                 ),
@@ -263,10 +287,11 @@ class _TransactionEditorState extends State<TransactionEditor> {
                   key: ValueKey('transaction-category_${_type.name}'),
                   initialValue: _category,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'التصنيف', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: _tr('التصنيف', 'Category'),
+                    border: const OutlineInputBorder()),
                   items: _categories.map((category) => DropdownMenuItem(
-                    value: category, child: Text(category),
+                    value: category, child: Text(_categoryDisplay(category)),
                   )).toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _category = value);
@@ -276,12 +301,16 @@ class _TransactionEditorState extends State<TransactionEditor> {
                 DropdownButtonFormField<String>(
                   initialValue: _source,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'المصدر', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: _tr('المصدر', 'Source'),
+                    border: const OutlineInputBorder()),
                   items: {..._sources, _source}
                       .map((source) => DropdownMenuItem(
                             value: source,
-                            child: Text(source.isEmpty ? 'غير محدد' : source),
+                            child: Text(source.isEmpty
+                                ? _tr('غير محدد', 'Unspecified')
+                                : (widget.isEnglish && source == 'نقدي'
+                                    ? 'Cash' : source)),
                           )).toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _source = value);
@@ -291,16 +320,16 @@ class _TransactionEditorState extends State<TransactionEditor> {
                 OutlinedButton.icon(
                   onPressed: _pickDate,
                   icon: const Icon(Icons.calendar_today_outlined),
-                  label: Text('التاريخ: ${formattedDate(_date)}'),
+                  label: Text('${_tr('التاريخ:', 'Date:')} ${formattedDate(_date)}'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _note,
                   maxLength: 250,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'ملاحظات (اختياري)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: _tr('ملاحظات (اختياري)', 'Notes (optional)'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -309,8 +338,8 @@ class _TransactionEditorState extends State<TransactionEditor> {
                   onPressed: _chooseReceipt,
                   icon: const Icon(Icons.receipt_long),
                   label: Text(_receiptDataUrl.isEmpty
-                      ? 'إضافة صورة إيصال أو فاتورة'
-                      : 'تغيير صورة الإيصال'),
+                      ? _tr('إضافة صورة إيصال أو فاتورة', 'Attach receipt image')
+                      : _tr('تغيير صورة الإيصال', 'Change receipt image')),
                 ),
                 _receiptPreview(),
                 if (_receiptDataUrl.isNotEmpty)
@@ -318,19 +347,19 @@ class _TransactionEditorState extends State<TransactionEditor> {
                     key: const Key('remove-receipt'),
                     onPressed: () => setState(() => _receiptDataUrl = ''),
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('حذف صورة الإيصال'),
+                    label: Text(_tr('حذف صورة الإيصال', 'Remove receipt image')),
                   ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   value: _excluded,
-                  title: const Text('استبعاد من إجمالي الشهر'),
+                  title: Text(_tr('استبعاد من إجمالي الشهر', 'Exclude from monthly totals')),
                   onChanged: (value) => setState(() => _excluded = value),
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
                   key: const Key('save-transaction'),
                   onPressed: _save,
-                  child: const Text('حفظ المعاملة'),
+                  child: Text(_tr('حفظ المعاملة', 'Save transaction')),
                 ),
                 if (widget.original != null) ...[
                   const SizedBox(height: 8),
@@ -339,7 +368,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
                     onPressed: _delete,
                     style: OutlinedButton.styleFrom(foregroundColor: current.error),
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('حذف المعاملة'),
+                    label: Text(_tr('حذف المعاملة', 'Delete transaction')),
                   ),
                 ],
               ],

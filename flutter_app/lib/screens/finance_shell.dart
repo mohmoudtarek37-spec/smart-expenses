@@ -261,7 +261,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => InstallmentEditor(original: original, month: _month),
+      builder: (context) => InstallmentEditor(original: original, month: _month,
+          isEnglish: widget.isEnglish),
     );
     if (result == null || !mounted || !_editable) return;
     var ledger = _currentLedger;
@@ -376,7 +377,8 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) => TransactionEditor(
-          original: original, customCategories: _customCategories),
+          original: original, customCategories: _customCategories,
+          isEnglish: widget.isEnglish),
     );
     if (result == null || !mounted || !_editable) return;
     final next = List<FinanceEntry>.from(_entries);

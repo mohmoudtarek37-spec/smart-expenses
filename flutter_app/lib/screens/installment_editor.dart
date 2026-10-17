@@ -17,16 +17,20 @@ class InstallmentEditResult {
 }
 
 class InstallmentEditor extends StatefulWidget {
-  const InstallmentEditor({super.key, this.original, required this.month});
+  const InstallmentEditor({super.key, this.original, required this.month,
+      this.isEnglish = false});
 
   final InstallmentPlan? original;
   final DateTime month;
+  final bool isEnglish;
 
   @override
   State<InstallmentEditor> createState() => _InstallmentEditorState();
 }
 
 class _InstallmentEditorState extends State<InstallmentEditor> {
+  String _tr(String ar, String en) => widget.isEnglish ? en : ar;
+
   final _key = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _amount;
@@ -93,19 +97,19 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف القسط؟'),
-        content: const Text(
-          'معاملات السحب اللي اتسجلت وقت دفع القسط هتفضل موجودة '
+        title: Text(_tr('حذف القسط؟', 'Delete installment?')),
+        content: Text(_tr('معاملات السحب اللي اتسجلت وقت دفع القسط هتفضل موجودة '
           'ومش هتتمسح من سجل المصروفات.',
+          'Transactions associated with this installment will remain in your expenses.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(_tr('إلغاء', 'Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف القسط'),
+            child: Text(_tr('حذف القسط', 'Delete installment')),
           ),
         ],
       ),
@@ -127,18 +131,21 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(widget.original == null ? 'إضافة قسط جديد' : 'تعديل القسط',
+              Text(widget.original == null
+                  ? _tr('إضافة قسط جديد', 'Add installment')
+                  : _tr('تعديل القسط', 'Edit installment'),
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 18),
               TextFormField(
                 key: const Key('installment-name'),
                 controller: _name, maxLength: 100,
-                decoration: const InputDecoration(
-                  labelText: 'اسم القسط', hintText: 'مثلاً: قسط الموبايل',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: _tr('اسم القسط', 'Installment name'),
+                  hintText: _tr('مثلاً: قسط الموبايل', 'e.g. Phone installment'),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) => v == null || v.trim().isEmpty
-                    ? 'اكتب اسم القسط' : null,
+                    ? _tr('اكتب اسم القسط', 'Enter installment name') : null,
               ),
               TextFormField(
                 key: const Key('installment-amount'),
@@ -147,27 +154,29 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'القيمة الشهرية بالجنيه',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: _tr('القيمة الشهرية بالجنيه', 'Monthly amount (EGP)'),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (raw) {
                   final input = (raw ?? '').replaceAll(',', '');
                   if (!RegExp(r'^\d{1,9}(?:\.\d{1,2})?$').hasMatch(input)) {
-                    return 'اكتب قيمة صحيحة حتى رقمين عشريين';
+                    return _tr('اكتب قيمة صحيحة حتى رقمين عشريين',
+                        'Enter an amount with up to two decimal places');
                   }
                   final value = double.tryParse(input);
-                  return value == null || value <= 0 ? 'المبلغ أكبر من صفر' : null;
+                  return value == null || value <= 0 ? _tr('المبلغ أكبر من صفر', 'Amount must be positive') : null;
                 },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 key: const Key('installment-due-day'),
                 initialValue: _dueDay,
-                decoration: const InputDecoration(
-                  labelText: 'يوم الدفع', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: _tr('يوم الدفع', 'Payment due day'),
+                  border: const OutlineInputBorder()),
                 items: List.generate(31, (i) => DropdownMenuItem(
-                  value: i + 1, child: Text('يوم ${i + 1}'),
+                  value: i + 1, child: Text('${_tr('يوم', 'Day')} ${i + 1}'),
                 )),
                 onChanged: (day) {
                   if (day != null) setState(() => _dueDay = day);
@@ -177,7 +186,7 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
               OutlinedButton.icon(
                 onPressed: _selectStartMonth,
                 icon: const Icon(Icons.calendar_month_outlined),
-                label: Text('بداية القسط: ${encodeMonth(_startMonth)}'),
+                label: Text('${_tr('بداية القسط:', 'Starts:')} ${encodeMonth(_startMonth)}'),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -185,25 +194,27 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
                 controller: _count,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'عدد الأشهر (0 يعني مستمر)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: _tr('عدد الأشهر (0 يعني مستمر)', 'Months (0 for ongoing)'),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) {
                   final count = int.tryParse(v ?? '');
                   return count == null || count < 0 || count > 240
-                      ? 'اختار من 0 لـ240 شهر' : null;
+                      ? _tr('اختار من 0 لـ240 شهر', 'Choose 0–240 months') : null;
                 },
               ),
               const SizedBox(height: 12),
-              const Text('يوم 31 في شهر قصير بيتحسب آخر يوم فيه. '
+              Text(_tr('يوم 31 في شهر قصير بيتحسب آخر يوم فيه. '
                   'القسط مش بيتخصم إلا لما تسجل الدفع يدويًا.',
-                  style: TextStyle(fontSize: 12)),
+                  'Due dates after the month end are moved to its last day. '
+                  'Payments are recorded only when you confirm them.'),
+                  style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 18),
               FilledButton(
                 key: const Key('save-installment'),
                 onPressed: _save,
-                child: const Text('حفظ القسط'),
+                child: Text(_tr('حفظ القسط', 'Save installment')),
               ),
               if (widget.original != null) ...[
                 const SizedBox(height: 8),
@@ -211,7 +222,7 @@ class _InstallmentEditorState extends State<InstallmentEditor> {
                   key: const Key('delete-installment'),
                   onPressed: _delete,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('حذف القسط'),
+                  label: Text(_tr('حذف القسط', 'Delete installment')),
                 ),
               ],
             ],
