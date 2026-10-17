@@ -1,4 +1,5 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -62,7 +63,7 @@ class FinanceShell extends StatefulWidget {
 
 enum _Filter { all, deposit, withdrawal }
 
-class _FinanceShellState extends State<FinanceShell> {
+class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver {
   static const _muted = Color(0xFF607285);
   static const _mutedDark = Color(0xFFABB3C5);
   static const _red = Color(0xFFC63E55);
@@ -89,6 +90,7 @@ class _FinanceShellState extends State<FinanceShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final today = DateTime.now();
     _month = DateTime(today.year, today.month, 1);
     _formatter.maximumFractionDigits = 2;
@@ -101,8 +103,19 @@ class _FinanceShellState extends State<FinanceShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _search.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        widget.cloudEnabled && _editable) {
+      // Retry a locally preserved change after connectivity returns. A fetch
+      // and revision check run first; never overwrite an unseen cloud edit.
+      unawaited(_autoSyncAfterWrite());
+    }
   }
 
   Color get _accent => widget.isDark
@@ -1492,7 +1505,7 @@ class _FinanceShellState extends State<FinanceShell> {
   }
 
   Future<void> _autoSyncAfterWrite() async {
-    if (!widget.cloudEnabled || _cloudBusy || !mounted ||
+    if (!widget.cloudEnabled || _cloudBusy || !_editable || !mounted ||
         widget.store is! LedgerStore) {
       return;
     }
@@ -1509,6 +1522,21 @@ class _FinanceShellState extends State<FinanceShell> {
       final service = CloudFinanceSync(client);
       final remote = await service.fetch();
       if (!mounted || client.auth.currentUser?.id != accountId) return;
+      if (remote != null &&
+          LedgerContent.equivalent(local, remote.ledger)) {
+        await _rememberCloudRevision(remote.revision);
+        if (mounted) {
+          setState(() => _autoSyncStatus = 'البيانات على الجهاز والسحابة متطابقتين.');
+        }
+        return;
+      }
+      if (remote == null && local.entries.isEmpty &&
+          local.installments.isEmpty && checkpoint == null) {
+        if (mounted) {
+          setState(() => _autoSyncStatus = 'مفيش بيانات محتاجة مزامنة.');
+        }
+        return;
+      }
       if (remote != null &&
           (checkpoint == null || remote.revision != checkpoint)) {
         setState(() => _autoSyncStatus =

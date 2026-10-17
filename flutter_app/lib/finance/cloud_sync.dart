@@ -34,6 +34,38 @@ class CloudConflict implements Exception {
 
 /// User-scoped cloud sync service. All mutations are explicitly initiated by
 /// the user in this preview; no implicit merging or overwrites.
+/// A stable comparison for JSONB round-trips: key order and transaction
+/// ordering cannot make an otherwise unchanged ledger look different.
+class LedgerContent {
+  static dynamic _sorted(dynamic value) {
+    if (value is Map) {
+      final keys = value.keys.map((item) => item.toString()).toList()..sort();
+      return {for (final key in keys) key: _sorted(value[key])};
+    }
+    if (value is List) {
+      return value.map(_sorted).toList();
+    }
+    return value;
+  }
+
+  static String canonical(InstallmentLedger ledger) {
+    final entries = ledger.entries.map((entry) => entry.toJson()).toList()
+      ..sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
+    final plans = ledger.installments.map((plan) => plan.toJson()).toList()
+      ..sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
+    return jsonEncode(_sorted({
+      'entries': entries,
+      'installments': plans,
+      'customCategories': ledger.customCategories,
+      'prefs': ledger.prefs,
+      'createdAt': ledger.createdAt,
+    }));
+  }
+
+  static bool equivalent(InstallmentLedger first, InstallmentLedger second) =>
+      canonical(first) == canonical(second);
+}
+
 class CloudFinanceSync {
   CloudFinanceSync(this.client);
 
