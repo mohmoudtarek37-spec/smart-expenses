@@ -184,7 +184,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  key: const Key('transaction-category'),
+                  key: ValueKey('transaction-category_${_type.name}'),
                   initialValue: _category,
                   isExpanded: true,
                   decoration: const InputDecoration(
@@ -198,7 +198,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _sources.contains(_source) ? _source : null,
+                  initialValue: _source,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'المصدر', border: OutlineInputBorder()),
