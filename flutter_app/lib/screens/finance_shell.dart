@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 
 import '../finance/finance_models.dart';
+import '../finance/installment_models.dart';
 import '../finance/transaction_store.dart';
 import 'transaction_editor.dart';
+import 'installment_editor.dart';
+import 'package:uuid/uuid.dart';
 
 /// Flutter reimplementation of the HTML v1.5 home/navigation structure.
 /// Supports an opt-in, account-isolated preview transaction store. No cloud sync yet.
@@ -39,6 +42,7 @@ class _FinanceShellState extends State<FinanceShell> {
   final _search = TextEditingController();
   late DateTime _month;
   late List<FinanceEntry> _entries;
+  List<InstallmentPlan> _installments = [];
   bool _loading = false;
   bool _saving = false;
   String? _loadError;
@@ -94,10 +98,14 @@ class _FinanceShellState extends State<FinanceShell> {
 
   Future<void> _loadSavedTransactions() async {
     try {
-      final loaded = await widget.store!.load();
+      final store = widget.store!;
+      final ledger = store is LedgerStore
+          ? await store.loadLedger()
+          : InstallmentLedger(entries: await store.load(), installments: const []);
       if (!mounted) return;
       setState(() {
-        _entries = loaded;
+        _entries = ledger.entries;
+        _installments = ledger.installments;
         _loading = false;
       });
     } catch (_) {
@@ -109,9 +117,148 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
+  Future<void> _applyLedger(InstallmentLedger next, String successMessage) async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    setState(() => _saving = true);
+    try {
+      await (widget.store! as LedgerStore).saveLedger(next);
+      if (!mounted) return;
+      setState(() {
+        _entries = next.entries;
+        _installments = next.installments;
+        _saving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(successMessage),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('فشل حفظ التغيير. البيانات القديمة لم تتغير.'),
+      ));
+    }
+  }
+
+  Future<void> _editInstallment([InstallmentPlan? original]) async {
+    if (!_editable || widget.store is! LedgerStore) {
+      _comingSoon('إدارة الأقساط');
+      return;
+    }
+    final result = await showModalBottomSheet<InstallmentEditResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => InstallmentEditor(original: original, month: _month),
+    );
+    if (result == null || !mounted || !_editable) return;
+    var ledger = InstallmentLedger(entries: _entries, installments: _installments);
+    if (result.action == InstallmentEditAction.delete) {
+      if (original == null) return;
+      ledger = ledger.withoutPlan(original.id);
+    } else {
+      try {
+        ledger = ledger.withPlan(result.plan!);
+      } on FormatException {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذر تعديل القسط بسبب وجود دفعات خارج مدة القسط.'),
+        ));
+        return;
+      }
+    }
+    await _applyLedger(ledger, 'تم حفظ الأقساط على الجهاز فقط.');
+  }
+
+  Future<void> _payInstallment(InstallmentPlan plan) async {
+    if (!_editable || widget.store is! LedgerStore ||
+        plan.paymentFor(_month) != null) return;
+    final eligible = _entries.where((entry) =>
+        entry.type == EntryType.withdrawal && !entry.excluded &&
+        FinanceSummary.sameMonth(entry.date, _month) &&
+        (entry.amount - plan.amount).abs() <= 0.011 &&
+        entry.linkedInstallment.isEmpty).toList();
+    final option = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('تسجيل دفع القسط'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+            child: Text('${plan.name} — ${_currency(plan.amount)}'),
+          ),
+          SimpleDialogOption(
+            key: const Key('pay-new-withdrawal'),
+            onPressed: () => Navigator.pop(context, 'new'),
+            child: const Text('إنشاء عملية سحب جديدة'),
+          ),
+          for (final entry in eligible)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, entry.id),
+              child: Text('ربط بسحب موجود: ${entry.title} — '
+                  '${formattedDate(entry.date)}'),
+            ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+            child: Text('اختار السحب الموجود لو مبلغ البنك مسجل بالفعل '
+                'عشان مايتحسبش مرتين.', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+    if (option == null || !mounted || !_editable) return;
+    final payDate = FinanceSummary.sameMonth(DateTime.now(), _month)
+        ? DateTime.now() : plan.dueDate(_month);
+    try {
+      final ledger = InstallmentLedger(
+        entries: _entries, installments: _installments,
+      ).recordPayment(
+        installmentId: plan.id, month: _month, paidOn: payDate,
+        newTransactionId: const Uuid().v4(),
+        existingTransactionId: option == 'new' ? null : option,
+      );
+      await _applyLedger(ledger, 'تم تسجيل دفع القسط بدون تكرار السحب.');
+    } on StateError {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر تسجيل القسط. راجع المعاملات وحالة الدفع.'),
+      ));
+    }
+  }
+
+  Future<void> _undoInstallmentPayment(InstallmentPlan plan) async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إلغاء تسجيل الدفع؟'),
+        content: const Text('السحب اللي أنشأه التطبيق لهذا القسط هيتحذف. '
+            'أما السحب الموجود اللي ربطته بالقسط هيفضل محفوظ.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+              child: const Text('تأكيد إلغاء الدفع')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || !_editable) return;
+    try {
+      final ledger = InstallmentLedger(
+        entries: _entries, installments: _installments,
+      ).undoPayment(installmentId: plan.id, month: _month);
+      await _applyLedger(ledger, 'تم إلغاء تسجيل الدفع.');
+    } on StateError {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر إلغاء دفع هذا القسط.'),
+      ));
+    }
+  }
+
   Future<void> _editTransaction({FinanceEntry? original}) async {
-    if (!_editable) {
-      _comingSoon('إضافة وتعديل المعاملات');
+    if (!_editable || original?.linkedInstallment.isNotEmpty == true) {
+      _comingSoon('فك ارتباط دفعة القسط أولًا قبل تعديلها');
       return;
     }
     final result = await showModalBottomSheet<TransactionEditResult>(
@@ -542,20 +689,111 @@ class _FinanceShellState extends State<FinanceShell> {
     shape: StadiumBorder(side: BorderSide(color: _line)),
   );
 
-  Widget _installments() => ListView(
-    key: const Key('installments-page'),
-    padding: const EdgeInsets.all(18),
-    children: [
-      const Text('الأقساط', style: TextStyle(fontSize: 23,
-          fontWeight: FontWeight.w800)),
-      const SizedBox(height: 14),
-      _empty('بننقل جدول الأقساط ودفعاتها من نسخة HTML، '
-          'ومش هنعرض بيانات وهمية.', Icons.calendar_month_outlined),
-      const SizedBox(height: 10),
-      _action('إضافة قسط', Icons.add,
-          () => _comingSoon('إضافة الأقساط')),
-    ],
-  );
+  Widget _installments() {
+    final summary = InstallmentMonthSummary(_installments, _month);
+    final today = DateTime.now();
+    return ListView(
+      key: const Key('installments-page'),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      children: [
+        const Text('الأقساط', style: TextStyle(fontSize: 23,
+            fontWeight: FontWeight.w800)),
+        Text('مواعيد دفع الأقساط الشهرية، وتسجل السحب وقت الدفع فقط',
+            style: TextStyle(fontSize: 12, color: _mutedText)),
+        _monthPicker(),
+        Row(children: [
+          _smallMetric(title: 'أقساط الشهر',
+              value: _money(summary.total), icon: Icons.calendar_month,
+              color: _blue, onTap: () {}),
+          const SizedBox(width: 9),
+          _smallMetric(title: 'المتبقي دفعه',
+              value: _money(summary.remaining),
+              icon: Icons.schedule_outlined,
+              color: summary.remaining > 0 ? _red : _green,
+              onTap: () {}),
+        ]),
+        const SizedBox(height: 16),
+        _panel(
+          background: _alt,
+          child: const Text(
+            '🔔 الاستحقاقات بتظهر عند فتح التطبيق. التنبيهات وقت إغلاقه '
+            'وتصدير المواعيد للتقويم لسه قيد التطوير.',
+            style: TextStyle(fontSize: 12, height: 1.6),
+          ),
+        ),
+        const SizedBox(height: 13),
+        Wrap(spacing: 9, children: [
+          _action('＋ إضافة قسط', Icons.add, () => _editInstallment()),
+          _action('تصدير للتقويم', Icons.calendar_month_outlined,
+              () => _comingSoon('تصدير المواعيد للتقويم')),
+        ]),
+        _sectionTitle('الأقساط المسجلة'),
+        if (summary.plans.isEmpty)
+          _empty('مفيش أقساط مسجلة للشهر ده، ابدأ بإضافة أول قسط',
+              Icons.calendar_month_outlined),
+        for (final plan in summary.plans) ...[
+          _installmentCard(plan, statusFor(plan, _month, today)),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _installmentCard(InstallmentPlan plan, DueStatus dueStatus) {
+    final paid = plan.paymentFor(_month) != null;
+    final label = switch (dueStatus) {
+      DueStatus.paid => 'مدفوع',
+      DueStatus.overdue => 'متأخر',
+      DueStatus.today => 'مستحق اليوم',
+      DueStatus.upcoming => 'منتظر الدفع',
+    };
+    return _panel(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(plan.name, style: const TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 15)),
+              Text('يوم ${plan.dueDay} من كل شهر · '
+                  '${plan.count == 0 ? 'مستمر' : '${plan.payments.length} من ${plan.count}'}',
+                  style: TextStyle(fontSize: 11, color: _mutedText)),
+            ],
+          )),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w700,
+              color: paid ? _green : dueStatus == DueStatus.overdue
+                  ? _red : _accent)),
+        ]),
+        const SizedBox(height: 14),
+        Text(_currency(plan.amount), style: const TextStyle(
+            fontSize: 23, fontWeight: FontWeight.w800),
+            textDirection: TextDirection.ltr),
+        if (plan.count > 0) ...[
+          const SizedBox(height: 9),
+          LinearProgressIndicator(
+            value: (plan.payments.length / plan.count).clamp(0, 1),
+            color: _accent, backgroundColor: _alt,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ],
+        const SizedBox(height: 11),
+        Text('الاستحقاق: ${formattedDate(plan.dueDate(_month))}',
+            style: TextStyle(color: _mutedText, fontSize: 12)),
+        const SizedBox(height: 9),
+        Wrap(spacing: 8, runSpacing: 7, children: [
+          if (!paid)
+            _action('✓ تسجيل الدفع', Icons.check,
+                () => _payInstallment(plan))
+          else
+            _action('إلغاء تسجيل الدفع', Icons.undo,
+                () => _undoInstallmentPayment(plan)),
+          _action('تعديل', Icons.edit_outlined,
+              () => _editInstallment(plan)),
+        ]),
+      ],
+    ));
+  }
 
   Widget _analytics() {
     final totals = _summary.totals(_month);
