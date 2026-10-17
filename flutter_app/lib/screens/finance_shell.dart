@@ -1072,13 +1072,16 @@ class _FinanceShellState extends State<FinanceShell> {
         _showCloudMessage('تم تنزيل بيانات الحساب على الجهاز.');
         return;
       }
-      final localJson = BackupCodec.encode(local);
-      final remoteJson = BackupCodec.encode(remote.ledger);
-      // Ignore timestamps in wrapper by comparing canonical financial data.
-      final localData =
-          (jsonDecode(localJson) as Map<String, dynamic>)['data'];
-      final remoteData =
-          (jsonDecode(remoteJson) as Map<String, dynamic>)['data'];
+      // Compare stable data, not export timestamps added to backup envelopes.
+      Map<String, dynamic> dataOf(InstallmentLedger ledger) => {
+        'transactions': ledger.entries.map((e) => e.toJson()).toList(),
+        'installments': ledger.installments.map((e) => e.toJson()).toList(),
+        'customCategories': ledger.customCategories,
+        'prefs': ledger.prefs,
+        'createdAt': ledger.createdAt,
+      };
+      final localData = dataOf(local);
+      final remoteData = dataOf(remote.ledger);
       if (jsonEncode(localData) == jsonEncode(remoteData)) {
         setState(() => _cloudRevision = remote.revision);
         _showCloudMessage('نسخة الجهاز والسحابة متطابقتين.');
