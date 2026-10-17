@@ -128,8 +128,6 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   Color get _ink => widget.isDark
       ? const Color(0xFFF1F8FF) : const Color(0xFF143652);
   Color get _mutedText => widget.isDark ? _mutedDark : _muted;
-  Color get _surface => widget.isDark
-      ? const Color(0xFF143A60) : const Color(0xFFEAF5FF);
   Color get _background => widget.isDark
       ? const Color(0xFF071C35) : const Color(0xFFD8EAF8);
   Color get _line => widget.isDark
@@ -2459,9 +2457,19 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
+          margin: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
           decoration: BoxDecoration(
-            color: widget.isDark ? const Color(0xFF15161D) : _surface,
-            border: Border(top: BorderSide(color: _line)),
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(colors: widget.isDark
+                ? [const Color(0xFF174267), const Color(0xFF0C2B4C)]
+                : [const Color(0xFFEDF7FE), const Color(0xFFCBDFEF)]),
+            border: Border.all(color: _line),
+            boxShadow: [BoxShadow(
+              color: widget.isDark
+                  ? const Color(0x77040F22) : const Color(0x335C8BB1),
+              blurRadius: 16, offset: const Offset(0, 5)),
+            ],
           ),
           child: Row(children: [
             _tab(_lang('الرئيسية', 'Home'), Icons.home_outlined, 0),
