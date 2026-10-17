@@ -5,6 +5,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'backup_codec.dart';
 import 'installment_models.dart';
 
+/// A clear limit is essential because receipts are currently inline Data URLs.
+class CloudSnapshotBudget {
+  static const maxBytes = 8 * 1024 * 1024;
+
+  static int estimateBytes(InstallmentLedger ledger) {
+    final envelope = jsonDecode(BackupCodec.encode(ledger))
+        as Map<String, dynamic>;
+    return utf8.encode(jsonEncode(envelope['data'])).length;
+  }
+
+  static bool fits(int bytes) => bytes <= maxBytes;
+
+  static bool nearLimit(int bytes) => bytes >= maxBytes * 3 ~/ 4;
+}
+
 class CloudSnapshot {
   const CloudSnapshot({required this.ledger, required this.revision});
   final InstallmentLedger ledger;
@@ -63,8 +78,8 @@ class CloudFinanceSync {
     final archive = jsonDecode(BackupCodec.encode(ledger))
         as Map<String, dynamic>;
     final data = archive['data'] as Map<String, dynamic>;
-    final encoded = utf8.encode(jsonEncode(data));
-    if (encoded.length > 8 * 1024 * 1024) {
+    final bytes = utf8.encode(jsonEncode(data)).length;
+    if (!CloudSnapshotBudget.fits(bytes)) {
       throw const FormatException('Cloud snapshot larger than 8 MB.');
     }
     try {

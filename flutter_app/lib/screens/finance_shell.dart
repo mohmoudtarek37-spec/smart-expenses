@@ -1521,6 +1521,13 @@ class _FinanceShellState extends State<FinanceShell> {
         setState(() =>
           _autoSyncStatus = 'تم حفظ آخر التعديلات سحابيًا.');
       }
+    } on FormatException {
+      if (mounted) {
+        setState(() => _autoSyncStatus =
+            'حجم بيانات الحساب أكبر من 8 ميجابايت؛ '
+            'البيانات محفوظة على الموبايل لكن مش اترفعت للسحابة. '
+            'صدّر نسخة احتياطية وصغّر صور الإيصالات.');
+      }
     } on CloudConflict {
       if (mounted) {
         setState(() => _autoSyncStatus =
@@ -1744,6 +1751,24 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
+  String _cloudQuotaLabel() {
+    try {
+      final size = CloudSnapshotBudget.estimateBytes(_currentLedger);
+      final used = (size / (1024 * 1024)).toStringAsFixed(2);
+      return !CloudSnapshotBudget.fits(size)
+          ? 'النسخة المحلية حوالي ' + used +
+              ' MB؛ تعدّت الحد السحابي (8 MB). '
+              'صدّر نسخة احتياطية وصغّر صور الإيصالات.'
+          : CloudSnapshotBudget.nearLimit(size)
+              ? 'تنبيه: مستخدم ' + used +
+                  ' MB من 8 MB متاحة للمزامنة السحابية.'
+              : 'حجم بيانات الحساب للسحابة: ' + used +
+                  ' MB من 8 MB.';
+    } catch (_) {
+      return 'حجم البيانات كبير جدًا أو فيه خطأ يمنع تقدير مساحة السحابة.';
+    }
+  }
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
@@ -1865,6 +1890,9 @@ class _FinanceShellState extends State<FinanceShell> {
               icon: const Icon(Icons.cloud_sync_outlined),
               label: const Text('مراجعة ومزامنة حسابي الآن'),
             ),
+            Text(_cloudQuotaLabel(),
+                key: const Key('cloud-quota-label'),
+                style: const TextStyle(fontSize: 12)),
             if (_autoSyncStatus.isNotEmpty)
               Text(_autoSyncStatus, key: const Key('cloud-sync-status'),
                 style: const TextStyle(fontSize: 12)),
