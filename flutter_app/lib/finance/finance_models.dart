@@ -36,9 +36,9 @@ class FinanceEntry {
       'id': id,
       'type': type.name,
       'amount': amount,
-      'date': '${date.year.toString().padLeft(4, '0')}-'
-          '${date.month.toString().padLeft(2, '0')}-'
-          '${date.day.toString().padLeft(2, '0')}',
+      'date': [date.year.toString().padLeft(4, '0'),
+               date.month.toString().padLeft(2, '0'),
+               date.day.toString().padLeft(2, '0')].join('-'),
       'category': category,
       'source': source,
       'note': note,
@@ -46,15 +46,45 @@ class FinanceEntry {
     };
   }
 
-  factory FinanceEntry.fromJson(Map<String, dynamic> json) {
-    final id = json['id'];
-    final typeValue = json['type'];
-    final amountValue = json['amount'];
-    final dateValue = json['date'];
-    if (id is! String || id.isEmpty ||
-        typeValue is! String || amountValue is! num ||
-        dateValue is! String ||
-        !RegExp(r'^\\d{4}-\\d{2}-\\d{2}
+  factory FinanceEntry.fromJson(Map<String, dynamic> value) {
+    final id = value['id'];
+    final type = value['type'];
+    final amount = value['amount'];
+    final storedDate = value['date'];
+    if (id is! String || id.isEmpty || type is! String ||
+        !['deposit', 'withdrawal'].contains(type) || amount is! num ||
+        !amount.toDouble().isFinite || amount < 0 ||
+        storedDate is! String || storedDate.length != 10) {
+      throw const FormatException('Invalid finance entry');
+    }
+    final date = DateTime.tryParse(storedDate);
+    if (date == null ||
+        [date.year.toString().padLeft(4, '0'),
+         date.month.toString().padLeft(2, '0'),
+         date.day.toString().padLeft(2, '0')].join('-') != storedDate) {
+      throw const FormatException('Invalid transaction date');
+    }
+    String readText(String key) {
+      final field = value[key];
+      if (field == null) return '';
+      if (field is! String) throw const FormatException('Invalid text field');
+      return field;
+    }
+    if (value['excluded'] != null && value['excluded'] is! bool) {
+      throw const FormatException('Invalid exclusion flag');
+    }
+    return FinanceEntry(
+      id: id,
+      type: type == 'deposit' ? EntryType.deposit : EntryType.withdrawal,
+      amount: amount.toDouble(),
+      date: date,
+      category: readText('category'),
+      source: readText('source'),
+      note: readText('note'),
+      excluded: value['excluded'] == true,
+    );
+  }
+}
 
 class MonthTotals {
   const MonthTotals({
