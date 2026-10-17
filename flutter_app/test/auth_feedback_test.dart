@@ -34,6 +34,6 @@ void main() {
 
   test('helps users distinguish network failures', () {
     expect(AuthFeedback.serverError('Failed host lookup'),
-        contains('الاتصال بالسيرفر'));
+        contains('يتصل بالسيرفر'));
   });
 }
