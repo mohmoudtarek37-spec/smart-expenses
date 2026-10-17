@@ -27,6 +27,13 @@ void main() {
         contains('كلمة المرور'));
   });
 
+  test('explains unauthorized Supabase email destinations and confirmation', () {
+    expect(AuthFeedback.serverError('Email address not authorized'),
+        contains('SMTP'));
+    expect(AuthFeedback.serverError('email_not_confirmed'),
+        contains('تأكيد'));
+  });
+
   test('gives fallback with real backend failure text', () {
     expect(AuthFeedback.serverError('Server rejected request, code 123'),
         contains('code 123'));

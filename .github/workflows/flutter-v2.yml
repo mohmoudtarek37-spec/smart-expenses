@@ -30,6 +30,8 @@ jobs:
           cache: true
       - name: Generate Android and iOS platform projects
         run: flutter create --project-name hesabaty --org io.github.mohmoudtarek37spec --platforms=android,ios .
+      - name: Ensure Android INTERNET permission in main manifest
+        run: dart tool/ensure_android_internet.dart
       - name: Resolve dependencies
         run: flutter pub get
       - name: Static analysis

@@ -9,6 +9,11 @@ class AuthFeedback {
 
   static String serverError(String message) {
     final normalized = message.toLowerCase();
+    if (normalized.contains('email_address_not_authorized') ||
+        normalized.contains('email address not authorized')) {
+      return 'Supabase منع إرسال رسالة التأكيد للعنوان ده. '
+          'إرسال البريد الافتراضي محدود، ولازم نضبط SMTP خاص بالتطبيق.';
+    }
     if (normalized.contains('email rate limit') ||
         normalized.contains('over_email_send_rate_limit') ||
         normalized.contains('email_send_rate_limit')) {
@@ -40,10 +45,13 @@ class AuthFeedback {
     }
     if (normalized.contains('sending confirmation email') ||
         normalized.contains('error sending email') ||
-        normalized.contains('email_address_not_authorized') ||
         normalized.contains('smtp')) {
       return 'السيرفر مش قادر يرسل رسالة تأكيد الإيميل. '
           'لازم نراجع إعدادات إرسال البريد في Supabase.';
+    }
+    if (normalized.contains('email_not_confirmed')) {
+      return 'الحساب محتاج تأكيد البريد الأول. افتح رسالة التفعيل '
+          'أو اطلب إعادة إرسالها.';
     }
     if (normalized.contains('invalid login credentials')) {
       return 'الإيميل أو كلمة المرور غير صحيحة، أو لسه محتاج تأكيد البريد.';

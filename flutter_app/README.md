@@ -43,3 +43,11 @@ flutter build apk --debug
 ## تنبيه مهم بخصوص الأقساط
 
 منطق الأقساط في نسخة Flutter الأولية **محلي وتجريبي**: لا يحدث سحب تلقائي ولا تذكير مضمون وقت إغلاق التطبيق. عند تسجيل القسط مدفوعًا، إما يُنشئ سحب واحد وإما يربط سحبًا موجودًا. حذف القسط يحتفظ بمعاملات السحب القديمة. لا تعتمد على النسخة الحالية في إدارة أموالك الفعلية: لا مزامنة، ولا استرجاع سحابي، ولا اعتماد نهائي لجودة الأجهزة أو أمان الإنتاج.
+
+
+## Android signup and connectivity
+
+- After `flutter create --platforms=android,ios --org io.github.mohmoudtarek37spec .`, run `dart tool/ensure_android_internet.dart` before **release** and preview builds. CI does this automatically.
+- Flutter email/password signup uses the real Supabase backend. A successful signup may require an emailed confirmation before sign-in; the Auth page includes a resend action.
+- The Supabase project's default email delivery is not production SMTP. Configure a dedicated SMTP provider and verify email confirmation + actual Android signup on a device. Never disable email confirmation simply to mask sending errors.
+- OAuth / Google sign-in and deep-link callbacks remain pending. This change does **not** claim that production signup has been proven end to end.

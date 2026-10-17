@@ -186,6 +186,7 @@ class _SignInPageState extends State<_SignInPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
+  bool _pendingConfirmation = false;
   String _status = '';
   bool _statusIsError = false;
 
@@ -240,6 +241,7 @@ class _SignInPageState extends State<_SignInPage> {
         }
         setState(() {
           _statusIsError = false;
+          _pendingConfirmation = result.session == null;
           _status = result.session == null
               ? 'طلب إنشاء الحساب اتقبل. افتح إيميلك واضغط على رابط '
                   'التأكيد، وشوف Spam لو مش لاقي الرسالة، '
@@ -289,6 +291,61 @@ class _SignInPageState extends State<_SignInPage> {
               '(${error.runtimeType}). جرب مرة تانية أو ابعت صورة الرسالة.';
         });
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resendConfirmation() async {
+    if (_busy) return;
+    final email = _email.text.trim();
+    if (!AuthFeedback.validEmail(email)) {
+      setState(() {
+        _statusIsError = true;
+        _status = 'اكتب بريدًا إلكترونيًا صحيحًا لإعادة إرسال التأكيد.';
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _statusIsError = false;
+      _status = 'جاري طلب رسالة تأكيد جديدة...';
+    });
+    try {
+      await Supabase.instance.client.auth.resend(
+        type: OtpType.signup,
+        email: email,
+      ).timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      setState(() {
+        _pendingConfirmation = true;
+        _status = 'تم قبول طلب إعادة إرسال التأكيد. راجع البريد وSpam. '
+            'لو الرسالة ما وصلتش، محتاجين نراجع إعدادات البريد في Supabase.';
+      });
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = AuthFeedback.serverError(error.message);
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'السيرفر اتأخر. راجع البريد قبل ما تعيد الطلب.';
+      });
+    } on SocketException {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'تعذر الوصول إلى Supabase. راجع الإنترنت.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'تعذر إرسال التأكيد. حاول مرة أخرى أو راجع إعدادات البريد.';
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -375,12 +432,19 @@ class _SignInPageState extends State<_SignInPage> {
                   onPressed: _busy ? null : () => _authenticate(register: true),
                   child: const Text('إنشاء حساب جديد'),
                 ),
+                TextButton(
+                  key: const Key('resend-confirmation'),
+                  onPressed: _busy ? null : _resendConfirmation,
+                  child: Text(_pendingConfirmation
+                      ? 'لم تصلك الرسالة؟ إعادة إرسال التأكيد'
+                      : 'عندي حساب ولم يصلني تأكيد البريد'),
+                ),
                 const SizedBox(height: 8),
                 const Text(
-                  'تسجيل الدخول باستخدام Google على أندرويد وآيفون '
-                  'سيُفعّل بعد إعداد روابط الرجوع الآمنة لكل نظام.',
+                  'تسجيل الدخول باستخدام Google لسه قيد الإعداد. '
+                  'إنشاء الحساب بالإيميل ممكن يحتاج تأكيد الرسالة قبل الدخول.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12),
                 ),
                 if (_busy) const LinearProgressIndicator(),
                 const SizedBox(height: 15),
