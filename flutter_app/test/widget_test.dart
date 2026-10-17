@@ -57,6 +57,10 @@ void main() {
 
   testWidgets('account profile saves an optional username without login',
       (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1200, 2300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final store = _WidgetLedgerStore();
     await tester.pumpWidget(MaterialApp(
       home: Directionality(textDirection: TextDirection.rtl,
@@ -74,10 +78,6 @@ void main() {
     expect(find.byKey(const Key('profile-gender')), findsOneWidget);
     expect(find.byKey(const Key('profile-biometric')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Test user');
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('profile-save')), 180,
-      scrollable: find.byType(Scrollable).last,
-    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profile-save')));
     await tester.pumpAndSettle();
