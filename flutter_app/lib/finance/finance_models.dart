@@ -18,6 +18,7 @@ class FinanceEntry {
     this.sender = '',
     this.fingerprint = '',
     this.createdAt = '',
+    this.extraFields = const {},
   }) : assert(amount >= 0);
 
   final String id;
@@ -36,6 +37,7 @@ class FinanceEntry {
   final String sender;
   final String fingerprint;
   final String createdAt;
+  final Map<String, dynamic> extraFields;
 
   FinanceEntry copyWith({String? linkedInstallment, bool? installmentCreated}) => FinanceEntry(
     id: id, type: type, amount: amount, date: date, category: category,
@@ -47,6 +49,7 @@ class FinanceEntry {
     sender: sender,
     fingerprint: fingerprint,
     createdAt: createdAt,
+    extraFields: extraFields,
   );
 
   String get title => note.trim().isNotEmpty
@@ -60,6 +63,7 @@ class FinanceEntry {
       throw const FormatException('Invalid finance entry');
     }
     return {
+      ...extraFields,
       'id': id,
       'type': type.name,
       'amount': amount,
@@ -115,6 +119,13 @@ class FinanceEntry {
     if (value['excluded'] != null && value['excluded'] is! bool) {
       throw const FormatException('Invalid exclusion flag');
     }
+    const known = {
+      'id', 'type', 'amount', 'date', 'category', 'source', 'note',
+      'excluded', 'linkedInstallment', 'installmentCreated',
+      'originalMessage', 'receiptDataUrl', 'sender', 'fingerprint', 'createdAt'
+    };
+    final extra = Map<String, dynamic>.from(value)
+      ..removeWhere((key, _) => known.contains(key));
     final receiptDataUrl = readText('receiptDataUrl');
     if (receiptDataUrl.isNotEmpty &&
         !RegExp(r'^data:image/(?:png|jpeg|webp);base64,', caseSensitive: false)
@@ -137,6 +148,7 @@ class FinanceEntry {
       sender: readText('sender'),
       fingerprint: readText('fingerprint'),
       createdAt: readText('createdAt'),
+      extraFields: extra,
     );
   }
 }
