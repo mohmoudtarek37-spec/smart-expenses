@@ -53,12 +53,16 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
     try {
       final available = await service.available();
       final enabled = await service.isEnabled(widget.scope);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _lockAvailable = available;
         _lockEnabled = enabled;
-      });
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _lockAvailable = false);
+      if (mounted) {
+        setState(() => _lockAvailable = false);
+      }
     }
   }
 
@@ -74,16 +78,23 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       );
       if (!mounted) return;
       setState(() {
-        if (ok) _lockEnabled = next;
-        else _message = _tr(
+        if (ok) {
+          _lockEnabled = next;
+        } else {
+          _message = _tr(
           'لم يتم تغيير القفل. تأكد من تسجيل البصمة أو الوجه على موبايلك.',
           'App lock unchanged. Check that device biometrics are enrolled.');
+        }
       });
     } catch (_) {
-      if (mounted) setState(() => _message = _tr(
-        'تعذر تغيير قفل التطبيق.', 'Could not change app lock.'));
+      if (mounted) {
+        setState(() => _message = _tr(
+          'تعذر تغيير قفل التطبيق.', 'Could not change app lock.'));
+      }
     } finally {
-      if (mounted) setState(() => _lockBusy = false);
+      if (mounted) {
+        setState(() => _lockBusy = false);
+      }
     }
   }
 
@@ -96,9 +107,11 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       if (image == null) return;
       final bytes = await image.readAsBytes();
       if (bytes.length > 256 * 1024) {
-        if (mounted) setState(() => _message = _tr(
-          'الصورة أكبر من 256 كيلوبايت؛ اختار صورة أصغر.',
-          'Photo is larger than 256 KB. Choose a smaller image.'));
+        if (mounted) {
+          setState(() => _message = _tr(
+            'الصورة أكبر من 256 كيلوبايت؛ اختار صورة أصغر.',
+            'Photo is larger than 256 KB. Choose a smaller image.'));
+        }
         return;
       }
       if (mounted) setState(() {
@@ -106,8 +119,10 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
         _message = '';
       });
     } catch (_) {
-      if (mounted) setState(() => _message = _tr(
-        'تعذر فتح الصورة.', 'Could not open the photo.'));
+      if (mounted) {
+        setState(() => _message = _tr(
+          'تعذر فتح الصورة.', 'Could not open the photo.'));
+      }
     }
   }
 
