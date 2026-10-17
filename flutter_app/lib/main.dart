@@ -79,10 +79,12 @@ class _HesabatyAppState extends State<HesabatyApp> {
         textDirection: TextDirection.rtl,
         child: widget.backendConfigured
             ? _AuthGate(
+                guestStore: widget.guestStore,
                 isDark: _isDark,
                 onToggleTheme: _toggleTheme,
               )
             : FinanceShell(
+                key: const ValueKey('guest-shell'),
                 store: widget.guestStore,
                 isDark: _isDark,
                 onToggleTheme: _toggleTheme,
@@ -92,11 +94,18 @@ class _HesabatyAppState extends State<HesabatyApp> {
   }
 }
 
+/// The app always opens to the dashboard. Accounts are an opt-in
+/// enhancement offered from Settings, never a launch prerequisite.
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({required this.isDark, required this.onToggleTheme});
+  const _AuthGate({
+    required this.isDark,
+    required this.onToggleTheme,
+    this.guestStore,
+  });
 
   final bool isDark;
   final VoidCallback onToggleTheme;
+  final TransactionStore? guestStore;
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
@@ -104,14 +113,39 @@ class _AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<_AuthGate> {
   late final StreamSubscription<AuthState> _subscription;
+  late final TransactionStore _guestStore;
 
   @override
   void initState() {
     super.initState();
+    _guestStore = widget.guestStore ??
+        EncryptedTransactionStore(accountScope: 'guest');
     _subscription = Supabase.instance.client.auth.onAuthStateChange
         .listen((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _showSignIn() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(
+      builder: (_) => const _SignInPage(),
+    ));
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } on AuthException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر تسجيل الخروج. حاول مرة تانية.'),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذر تسجيل الخروج. تأكد من الاتصال وجرب مرة تانية.'),
+      ));
+    }
   }
 
   @override
@@ -123,18 +157,21 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
-    return user == null
-        ? const _SignInPage()
-        : FinanceShell(
-            key: ValueKey('user_${user.id}'),
-            store: EncryptedTransactionStore(accountScope: user.id),
-            cloudEnabled: true,
-            isDark: widget.isDark,
-            onToggleTheme: widget.onToggleTheme,
-            onSignOut: () {
-              Supabase.instance.client.auth.signOut();
-            },
-          );
+    final signedIn = user != null;
+    // Stable keys force FinanceShell to unload account-specific records and
+    // reopen the correct encrypted store whenever the user changes.
+    return FinanceShell(
+      key: ValueKey(signedIn ? 'user_${user.id}' : 'guest-shell'),
+      store: signedIn
+          ? EncryptedTransactionStore(accountScope: user.id)
+          : _guestStore,
+      cloudEnabled: signedIn,
+      onOpenAuth: signedIn ? null : _showSignIn,
+      accountEmail: signedIn ? user.email : null,
+      isDark: widget.isDark,
+      onToggleTheme: widget.onToggleTheme,
+      onSignOut: signedIn ? _signOut : null,
+    );
   }
 }
 
