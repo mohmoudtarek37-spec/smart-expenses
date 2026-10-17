@@ -7,6 +7,21 @@ import 'package:hesabaty/main.dart';
 import 'package:hesabaty/screens/finance_shell.dart';
 
 void main() {
+
+  testWidgets('language control changes navigation and can return to Arabic',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const HesabatyApp());
+    await tester.pumpAndSettle();
+    expect(find.text('الرئيسية'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('language-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Transactions'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('language-action')));
+    await tester.pumpAndSettle();
+    expect(find.text('الرئيسية'), findsOneWidget);
+  });
+
   testWidgets('HTML-style home and 4 tabs plus add action render',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());

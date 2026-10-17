@@ -15,8 +15,8 @@ void main() {
     final ledger = InstallmentLedger(entries: [
       FinanceEntry(id: '1', type: EntryType.withdrawal, amount: 50,
         date: DateTime(2026, 10, 17), category: 'فاتورة',
-        receiptDataUrl: 'data:image/png;base64,' +
-            List.filled(10000, 'A').join()),
+        receiptDataUrl: ['data:image/png;base64,',
+            List.filled(10000, 'A').join()].join()),
     ], installments: const []);
     expect(CloudSnapshotBudget.estimateBytes(ledger), greaterThan(10000));
     expect(CloudSnapshotBudget.fits(8 * 1024 * 1024 + 1), isFalse);

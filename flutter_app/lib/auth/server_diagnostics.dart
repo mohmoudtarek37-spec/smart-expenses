@@ -44,7 +44,7 @@ class AuthServerDiagnostics {
         : googleEnabled == true
             ? 'Google Login مفعّل على السيرفر.'
             : 'مش قادرين نحدد حالة Google Login.';
-    return 'الاتصال بسيرفر حساباتي شغال. ' + google +
+    return 'الاتصال بسيرفر حساباتي شغال. $google'
         ' فحص الاتصال لا يؤكد إن خدمة إرسال إيميلات التفعيل شغالة؛ '
         'لازم نجرب إنشاء حساب ووصول رسالة فعلية.';
   }

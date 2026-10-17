@@ -634,7 +634,7 @@ class _SignInPageState extends State<_SignInPage> {
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
                   decoration: InputDecoration(
-                      labelText: _lang('البريد الإلكتروني', 'Email'), border: OutlineInputBorder()),
+                      labelText: _lang('البريد الإلكتروني', 'Email'), border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 14),
                 TextField(
@@ -642,8 +642,8 @@ class _SignInPageState extends State<_SignInPage> {
                   controller: _password,
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(
-                      labelText: _lang('كلمة المرور', 'Password'), border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: _lang('كلمة المرور', 'Password'), border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 16),
                 FilledButton(

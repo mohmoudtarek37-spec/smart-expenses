@@ -2002,17 +2002,19 @@ class _FinanceShellState extends State<FinanceShell> {
         title: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_lang('أهلًا بيك 👋', 'Welcome 👋'),
-                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
             Text(_lang('فلوسك في مكان واحد', 'Your money in one place'),
                 style: TextStyle(fontSize: 11, color: _mutedText)),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Language',
-            onPressed: () => _comingSoon('اللغة الإنجليزية'),
-            icon: const Text('EN', style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w800)),
+            key: const Key('language-action'),
+            tooltip: 'Language / اللغة',
+            onPressed: widget.onToggleLanguage,
+            icon: Text(widget.isEnglish ? 'ع' : 'EN',
+              style: const TextStyle(fontSize: 12,
+                  fontWeight: FontWeight.w800)),
           ),
           IconButton(
             tooltip: _lang('تغيير المظهر', 'Toggle theme'),
