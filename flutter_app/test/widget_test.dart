@@ -101,6 +101,45 @@ void main() {
     expect(find.text('120'), findsNothing);
   });
 
+  testWidgets('edits and deletes one existing transaction safely',
+      (WidgetTester tester) async {
+    final today = DateTime.now();
+    final store = _WidgetStore();
+    store.entries = [
+      FinanceEntry(id: 'existing', type: EntryType.withdrawal,
+        amount: 55, date: DateTime(today.year, today.month, 2),
+        category: 'مطاعم', note: 'غداء'),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Directionality(textDirection: TextDirection.rtl,
+          child: FinanceShell(store: store)),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المعاملات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('غداء'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('transaction-amount')), '82.25');
+    await tester.ensureVisible(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    expect(store.entries, hasLength(1));
+    expect(store.entries.single.id, 'existing');
+    expect(store.entries.single.amount, 82.25);
+    await tester.tap(find.text('غداء'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('delete-transaction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-transaction')));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف المعاملة؟'), findsOneWidget);
+    await tester.tap(find.text('تأكيد الحذف'));
+    await tester.pumpAndSettle();
+    expect(store.entries, isEmpty);
+    expect(find.text('لا توجد معاملات مطابقة في هذا الشهر'), findsOneWidget);
+  });
+
   testWidgets('preview prevents accidentally creating fake user records',
       (WidgetTester tester) async {
     await tester.pumpWidget(const HesabatyApp());
