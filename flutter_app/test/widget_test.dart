@@ -35,6 +35,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Total income'), findsOneWidget);
     expect(find.text('Spending ratio'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Expenses by category'), 180,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('home-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Expenses by category'), findsOneWidget);
     await tester.tap(find.text('Transactions').last);
     await tester.pumpAndSettle();
