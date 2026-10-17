@@ -125,6 +125,47 @@ void main() {
     expect(secure.data, isEmpty);
   });
 
+  test('cloud revision survives app restart within one account', () async {
+    final localStorage = _MemorySecureStorage();
+    final firstRun = EncryptedTransactionStore(
+      accountScope: 'account-A', storage: localStorage,
+    );
+    expect(await firstRun.readCloudRevision(), isNull);
+    await firstRun.recordCloudRevision(3);
+    final restartedApp = EncryptedTransactionStore(
+      accountScope: 'account-A', storage: localStorage,
+    );
+    expect(await restartedApp.readCloudRevision(), 3);
+    await restartedApp.recordCloudRevision(4);
+    expect(await firstRun.readCloudRevision(), 4);
+  });
+
+  test('two accounts cannot see each others cloud revision checkpoints', () async {
+    final storage = _MemorySecureStorage();
+    final alice = EncryptedTransactionStore(
+        accountScope: 'account-A', storage: storage);
+    final bob = EncryptedTransactionStore(
+        accountScope: 'account-B', storage: storage);
+    await alice.recordCloudRevision(7);
+    expect(await alice.readCloudRevision(), 7);
+    expect(await bob.readCloudRevision(), isNull);
+    await bob.recordCloudRevision(2);
+    expect(await alice.readCloudRevision(), 7);
+    expect(await bob.readCloudRevision(), 2);
+  });
+
+  test('a corrupt revision checkpoint does not turn into revision one', () async {
+    final storage = _MemorySecureStorage();
+    final store = EncryptedTransactionStore(
+        accountScope: 'account-A', storage: storage);
+    await store.recordCloudRevision(1);
+    final key = storage.data.keys.single;
+    storage.data[key] = '{"version":1,"revision":-100}';
+    await expectLater(store.readCloudRevision(), throwsFormatException);
+    await store.clearCloudRevision();
+    expect(await store.readCloudRevision(), isNull);
+  });
+
   test('confirmed backup import stores an encrypted rollback snapshot', () async {
     final storage = _MemorySecureStorage();
     final store = EncryptedTransactionStore(
