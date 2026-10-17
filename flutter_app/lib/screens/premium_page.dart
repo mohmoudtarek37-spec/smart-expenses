@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../subscriptions/account_plan.dart';
+
 /// Google Play purchases are disabled until the verification backend reports
 /// readiness. The app NEVER grants Premium from a device purchase callback.
 class PremiumPage extends StatefulWidget {
@@ -23,6 +25,7 @@ class _PremiumPageState extends State<PremiumPage> {
   bool _storeReady = false;
   bool _backendReady = false;
   bool _premium = false;
+  bool _owner = false;
   bool _processing = false;
   String _status = '';
 
@@ -42,20 +45,23 @@ class _PremiumPageState extends State<PremiumPage> {
   Future<void> _refreshEntitlement() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
+    // "owner" can only come from protected Supabase app_metadata.
+    if (AccountPlan.isOwner(user.appMetadata)) {
+      if (mounted) setState(() { _owner = true; _premium = true; });
+      return;
+    }
     final data = await Supabase.instance.client.from('user_entitlements')
         .select('status,expires_at,product_id')
         .eq('user_id', user.id).maybeSingle();
     if (!mounted) return;
-    final until = DateTime.tryParse(data?['expires_at']?.toString() ?? '');
-    final permitted = data?['product_id'] == productId &&
-        ['active', 'grace_period', 'canceled'].contains(data?['status']) &&
-        until != null && until.isAfter(DateTime.now());
-    setState(() => _premium = permitted);
+    setState(() => _premium =
+        AccountPlan.verifiedPremium(data, DateTime.now()));
   }
 
   Future<void> _initialize() async {
     try {
       await _refreshEntitlement();
+      if (_owner) return;
       final response = await Supabase.instance.client.functions.invoke(
           'verify-play-subscription', body: {'action': 'status'});
       final ready = response.data is Map &&
@@ -222,7 +228,8 @@ class _PremiumPageState extends State<PremiumPage> {
       children: [
         const Icon(Icons.workspace_premium_outlined, size: 72),
         const SizedBox(height: 12),
-        Text(_premium ? _tr('اشتراكك نشط', 'Your subscription is active')
+        Text(_owner ? _tr('حساب المالك', 'Owner account')
+            : _premium ? _tr('اشتراكك نشط', 'Your subscription is active')
             : _tr('حساباتي Premium', 'Hesabaty Premium'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium),
@@ -247,7 +254,8 @@ class _PremiumPageState extends State<PremiumPage> {
           onPressed: _premium || _loading || _processing ||
               !_backendReady || !_storeReady ? null : _buy,
           icon: const Icon(Icons.shopping_bag_outlined),
-          label: Text(_premium ? _tr('Premium مفعل', 'Premium active')
+          label: Text(_owner ? _tr('كل المميزات متاحة للمالك', 'Owner access')
+              : _premium ? _tr('Premium مفعل', 'Premium active')
               : _tr('اشترك عبر Google Play', 'Subscribe with Google Play')),
         ),
         OutlinedButton(

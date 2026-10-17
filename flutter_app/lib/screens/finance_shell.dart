@@ -12,6 +12,7 @@ import '../finance/backup_codec.dart';
 import '../finance/guest_migration.dart';
 import '../finance/analytics_models.dart';
 import 'premium_page.dart';
+import '../subscriptions/account_plan.dart';
 import 'account_profile_page.dart';
 import '../finance/monthly_report.dart';
 import '../finance/installment_calendar.dart';
@@ -88,6 +89,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
   bool _loading = false;
   bool _saving = false;
   bool _reportBusy = false;
+  HesabatyPlan _plan = HesabatyPlan.free;
   String? _loadError;
   int _selected = 0;
   _Filter _filter = _Filter.all;
@@ -100,6 +102,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     _month = DateTime(today.year, today.month, 1);
     _formatter.maximumFractionDigits = 2;
     _entries = List.of(widget.entries);
+    if (widget.cloudEnabled) unawaited(_refreshAccountPlan());
     if (widget.store != null) {
       _loading = true;
       _loadSavedTransactions();
@@ -500,12 +503,60 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     }
   }
 
+  Future<void> _refreshAccountPlan() async {
+    // No default admin privileges; the server must issue the owner claim.
+    try {
+      if (!widget.cloudEnabled) return;
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return;
+      final userId = user.id;
+      final appMetadata = user.appMetadata;
+      if (AccountPlan.isOwner(appMetadata)) {
+        if (mounted) setState(() => _plan = HesabatyPlan.owner);
+        return;
+      }
+      final entitlement = await client.from('user_entitlements')
+          .select('product_id,status,expires_at')
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (!mounted || client.auth.currentUser?.id != userId) return;
+      setState(() => _plan = AccountPlan.fromServer(
+        signedIn: true,
+        appMetadata: appMetadata,
+        entitlement: entitlement,
+        now: DateTime.now(),
+      ));
+    } catch (_) {
+      // Stay Free when the network or permission check is unavailable.
+      if (mounted && _plan != HesabatyPlan.owner) {
+        setState(() => _plan = HesabatyPlan.free);
+      }
+    }
+  }
+
+  String get _planLabel => switch (_plan) {
+    HesabatyPlan.owner => _lang('المالك', 'Owner'),
+    HesabatyPlan.premium => 'Premium',
+    HesabatyPlan.free => _lang('الخطة المجانية', 'Free plan'),
+    HesabatyPlan.guest => _lang('ضيف', 'Guest'),
+  };
+
+  Future<void> _openPremium() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PremiumPage(
+        isEnglish: widget.isEnglish)),
+    );
+    if (mounted) await _refreshAccountPlan();
+  }
+
   void _goTo(int page, {_Filter filter = _Filter.all}) {
     setState(() {
       _selected = page;
       _filter = filter;
       _search.clear();
     });
+    if (page == 4 && widget.cloudEnabled) unawaited(_refreshAccountPlan());
   }
 
   Future<void> _exportMonthlyReport() async {
@@ -2205,7 +2256,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
               border: Border.all(
                 color: _accent.withValues(alpha: 0.27)),
             ),
-            child: Text(_lang('الخطة المجانية', 'Free plan'),
+            child: Text(widget.cloudEnabled ? _planLabel : _lang('ضيف', 'Guest'),
               style: TextStyle(color: _accent, fontSize: 11,
                 fontWeight: FontWeight.w700)),
           ),
@@ -2332,9 +2383,7 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
             key: const Key('premium-settings'),
             leading: const Icon(Icons.workspace_premium_outlined),
             title: Text(_lang('حساباتي Premium', 'Hesabaty Premium')),
-            onTap: () => Navigator.of(context).push<void>(
-              MaterialPageRoute(builder: (_) => PremiumPage(
-                isEnglish: widget.isEnglish))),
+            onTap: _openPremium,
           ),
           ListTile(
             key: const Key('sync-cloud'),
