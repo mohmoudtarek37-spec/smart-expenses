@@ -202,9 +202,10 @@ class _TransactionEditorState extends State<TransactionEditor> {
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'المصدر', border: OutlineInputBorder()),
-                  items: {..._sources, if (_source.isNotEmpty) _source}
+                  items: {..._sources, _source}
                       .map((source) => DropdownMenuItem(
-                            value: source, child: Text(source),
+                            value: source,
+                            child: Text(source.isEmpty ? 'غير محدد' : source),
                           )).toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _source = value);
