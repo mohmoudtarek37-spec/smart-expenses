@@ -18,6 +18,12 @@ abstract class LedgerStore implements TransactionStore {
   Future<void> saveLedger(InstallmentLedger ledger);
 }
 
+abstract class BackupRestorableStore {
+  /// Keep the old encrypted snapshot before a confirmed import replaces it.
+  Future<void> replaceFromBackup(InstallmentLedger ledger);
+  Future<InstallmentLedger?> lastImportRestorePoint();
+}
+
 abstract class PrivateStringStorage {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
@@ -40,7 +46,7 @@ class DevicePrivateStorage implements PrivateStringStorage {
 
 /// Per-account device encrypted preview storage. v1 transaction snapshots are
 /// opened without data loss and become v2 (transaction+installment) on write.
-class EncryptedTransactionStore implements LedgerStore {
+class EncryptedTransactionStore implements LedgerStore, BackupRestorableStore {
   EncryptedTransactionStore({
     required String accountScope,
     PrivateStringStorage? storage,
@@ -51,6 +57,46 @@ class EncryptedTransactionStore implements LedgerStore {
   final String _key;
   final PrivateStringStorage _storage;
 
+  String get _restoreKey => '${_key}_pre_import';
+
+  @override
+  Future<void> replaceFromBackup(InstallmentLedger ledger) async {
+    // Validate the incoming data before touching either storage key.
+    _validateLedgerForWrite(ledger);
+    final old = await _storage.read(_key);
+    if (old != null) {
+      // Do not overwrite the only restore point if the original is unreadable.
+      _decodeLedger(old);
+      await _storage.write(_restoreKey, old);
+    }
+    await saveLedger(ledger);
+  }
+
+  @override
+  Future<InstallmentLedger?> lastImportRestorePoint() async {
+    final raw = await _storage.read(_restoreKey);
+    if (raw == null) return null;
+    return _decodeLedger(raw);
+  }
+
+  static void _validateLedgerForWrite(InstallmentLedger ledger) {
+    final ids = <String>{};
+    for (final entry in ledger.entries) {
+      if (!ids.add(entry.id)) {
+        throw const FormatException('Duplicate transaction ID');
+      }
+      entry.toJson();
+    }
+    final planIds = <String>{};
+    for (final plan in ledger.installments) {
+      if (!planIds.add(plan.id)) {
+        throw const FormatException('Duplicate installment ID');
+      }
+      plan.validate();
+    }
+    _validateLinks(ledger.entries, ledger.installments);
+  }
+
   @override
   Future<List<FinanceEntry>> load() async => (await loadLedger()).entries;
 
@@ -60,6 +106,10 @@ class EncryptedTransactionStore implements LedgerStore {
     if (raw == null) {
       return const InstallmentLedger(entries: [], installments: []);
     }
+    return _decodeLedger(raw);
+  }
+
+  static InstallmentLedger _decodeLedger(String raw) {
     // Corruption/future schema must never be treated as an empty snapshot.
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic> ||
@@ -145,21 +195,7 @@ class EncryptedTransactionStore implements LedgerStore {
 
   @override
   Future<void> saveLedger(InstallmentLedger ledger) async {
-    final ids = <String>{};
-    for (final entry in ledger.entries) {
-      if (!ids.add(entry.id)) {
-        throw const FormatException('Duplicate transaction ID');
-      }
-      entry.toJson();
-    }
-    final planIds = <String>{};
-    for (final plan in ledger.installments) {
-      if (!planIds.add(plan.id)) {
-        throw const FormatException('Duplicate installment ID');
-      }
-      plan.validate();
-    }
-    _validateLinks(ledger.entries, ledger.installments);
+    _validateLedgerForWrite(ledger);
     final data = jsonEncode({
       'schemaVersion': 2,
       'entries': ledger.entries.map((e) => e.toJson()).toList(),
