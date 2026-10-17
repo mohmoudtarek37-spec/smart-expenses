@@ -72,7 +72,7 @@ class EncryptedTransactionStore
   @override
   Future<int?> readCloudRevision() async {
     final raw = await _storage.read(_syncRevisionKey);
-    if (raw == null) return null;
+    if (raw == null || raw.isEmpty) return null;
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic> ||
         decoded['version'] != 1 ||
