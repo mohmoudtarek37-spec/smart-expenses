@@ -89,7 +89,10 @@ Deno.serve(async (request) => {
     return reply({ error: "Invalid JSON" }, 400);
   }
   const googleAccount = Deno.env.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON");
-  const ready = Boolean(googleAccount && url && serviceKey);
+  // Explicit production gate: adding a service-account credential alone
+  // must never make a purchase button available before Play Console testing.
+  const ready = Boolean(googleAccount && url && serviceKey &&
+    Deno.env.get("GOOGLE_PLAY_BILLING_ENABLED") === "true");
   if (body.action === "status") {
     return reply({ ready, productId });
   }
