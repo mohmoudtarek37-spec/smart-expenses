@@ -13,9 +13,30 @@ class _MemorySecureStorage implements PrivateStringStorage {
   Future<void> write(String key, String value) async {
     data[key] = value;
   }
+
+  @override
+  Future<void> delete(String key) async { data.remove(key); }
 }
 
 void main() {
+  test('clear data removes current ledger, import rollback and revision only', () async {
+    final secure = _MemorySecureStorage();
+    final guest = EncryptedTransactionStore(accountScope: 'guest', storage: secure);
+    final other = EncryptedTransactionStore(accountScope: 'user-2', storage: secure);
+    await guest.save([FinanceEntry(id: 'one', type: EntryType.deposit,
+        amount: 100, date: DateTime(2026, 10), category: 'Salary')]);
+    await guest.replaceFromBackup(const InstallmentLedger(
+      entries: [], installments: []));
+    await guest.recordCloudRevision(2);
+    await other.save([FinanceEntry(id: 'two', type: EntryType.deposit,
+        amount: 300, date: DateTime(2026, 10), category: 'Salary')]);
+    await guest.clearAllLocalData();
+    expect(await guest.load(), isEmpty);
+    expect(await guest.lastImportRestorePoint(), isNull);
+    expect(await guest.readCloudRevision(), isNull);
+    expect((await other.load()).single.amount, 300);
+  });
+
   test('persists and restores transaction fields, dates, and exclusions', () async {
     final storage = _MemorySecureStorage();
     final store = EncryptedTransactionStore(accountScope: 'guest', storage: storage);

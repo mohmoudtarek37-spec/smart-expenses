@@ -35,6 +35,7 @@ abstract class CloudRevisionStore {
 abstract class PrivateStringStorage {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
+  Future<void> delete(String key);
 }
 
 class DevicePrivateStorage implements PrivateStringStorage {
@@ -50,12 +51,21 @@ class DevicePrivateStorage implements PrivateStringStorage {
   @override
   Future<void> write(String key, String value) =>
       _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
+/// Deletes ledger, old import restore point, and sync checkpoint together.
+abstract class FullAccountDataResetStore {
+  Future<void> clearAllLocalData();
 }
 
 /// Per-account device encrypted preview storage. v1 transaction snapshots are
 /// opened without data loss and become v2 (transaction+installment) on write.
 class EncryptedTransactionStore
-    implements LedgerStore, BackupRestorableStore, CloudRevisionStore {
+    implements LedgerStore, BackupRestorableStore, CloudRevisionStore,
+        FullAccountDataResetStore {
   EncryptedTransactionStore({
     required String accountScope,
     PrivateStringStorage? storage,
@@ -115,6 +125,13 @@ class EncryptedTransactionStore
     final raw = await _storage.read(_restoreKey);
     if (raw == null) return null;
     return _decodeLedger(raw);
+  }
+
+  @override
+  Future<void> clearAllLocalData() async {
+    await _storage.delete(_key);
+    await _storage.delete(_restoreKey);
+    await _storage.delete(_syncRevisionKey);
   }
 
   static void _validateLedgerForWrite(InstallmentLedger ledger) {

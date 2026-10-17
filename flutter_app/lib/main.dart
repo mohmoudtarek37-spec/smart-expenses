@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/finance_shell.dart';
+import 'security/device_biometric_lock.dart';
 import 'screens/signup_page.dart';
 import 'auth/auth_feedback.dart';
 import 'auth/server_diagnostics.dart';
@@ -247,7 +248,12 @@ class _AuthGateState extends State<_AuthGate> {
     if (_requireAccount && !signedIn) {
       return _SignInPage(allowGuest: false, isEnglish: widget.isEnglish);
     }
-    return FinanceShell(
+    final scope = signedIn ? user.id : 'guest';
+    return AppLockGate(
+      key: ValueKey('app-lock-$scope'),
+      scope: scope,
+      isEnglish: widget.isEnglish,
+      child: FinanceShell(
       key: ValueKey(signedIn ? 'user_${user.id}' : 'guest-shell'),
       store: signedIn
           ? EncryptedTransactionStore(accountScope: user.id)
@@ -261,6 +267,7 @@ class _AuthGateState extends State<_AuthGate> {
       onToggleTheme: widget.onToggleTheme,
       onToggleLanguage: widget.onToggleLanguage,
       onSignOut: signedIn ? _signOut : null,
+      ),
     );
   }
 }
