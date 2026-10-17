@@ -46,6 +46,7 @@ class HesabatyApp extends StatefulWidget {
 }
 
 class _HesabatyAppState extends State<HesabatyApp> {
+  StreamSubscription<AuthState>? _rootAuthSubscription;
   bool _isDark = false;
   bool _isEnglish = false;
   static const _languageKey = 'hesabaty_flutter_language';
@@ -56,6 +57,16 @@ class _HesabatyAppState extends State<HesabatyApp> {
     super.initState();
     _loadTheme();
     _loadLanguage();
+    if (widget.backendConfigured) {
+      _rootAuthSubscription = Supabase.instance.client.auth.onAuthStateChange
+          .listen((_) { if (mounted) setState(() {}); });
+    }
+  }
+
+  @override
+  void dispose() {
+    _rootAuthSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTheme() async {
@@ -113,6 +124,18 @@ class _HesabatyAppState extends State<HesabatyApp> {
     return MaterialApp(
       title: 'حساباتي',
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        if (!widget.backendConfigured) {
+          return child ?? const SizedBox.shrink();
+        }
+        final scope = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+        return AppLockGate(
+          key: ValueKey('app-lock-$scope'),
+          scope: scope,
+          isEnglish: _isEnglish,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       locale: _isEnglish ? const Locale('en') : const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
@@ -248,12 +271,7 @@ class _AuthGateState extends State<_AuthGate> {
     if (_requireAccount && !signedIn) {
       return _SignInPage(allowGuest: false, isEnglish: widget.isEnglish);
     }
-    final scope = signedIn ? user.id : 'guest';
-    return AppLockGate(
-      key: ValueKey('app-lock-$scope'),
-      scope: scope,
-      isEnglish: widget.isEnglish,
-      child: FinanceShell(
+    return FinanceShell(
       key: ValueKey(signedIn ? 'user_${user.id}' : 'guest-shell'),
       store: signedIn
           ? EncryptedTransactionStore(accountScope: user.id)
@@ -267,7 +285,6 @@ class _AuthGateState extends State<_AuthGate> {
       onToggleTheme: widget.onToggleTheme,
       onToggleLanguage: widget.onToggleLanguage,
       onSignOut: signedIn ? _signOut : null,
-      ),
     );
   }
 }
