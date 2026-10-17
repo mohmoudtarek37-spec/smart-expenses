@@ -1,0 +1,639 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../finance/finance_models.dart';
+
+/// Flutter reimplementation of the HTML v1.5 home/navigation structure.
+/// Financial records are supplied by the caller; this preview NEVER fabricates
+/// or saves user data. A reviewed data repository will be connected separately.
+class FinanceShell extends StatefulWidget {
+  const FinanceShell({
+    super.key,
+    this.entries = const [],
+    this.isDark = false,
+    this.onToggleTheme,
+    this.onSignOut,
+  });
+
+  final List<FinanceEntry> entries;
+  final bool isDark;
+  final VoidCallback? onToggleTheme;
+  final VoidCallback? onSignOut;
+
+  @override
+  State<FinanceShell> createState() => _FinanceShellState();
+}
+
+enum _Filter { all, deposit, withdrawal }
+
+class _FinanceShellState extends State<FinanceShell> {
+  static const _muted = Color(0xFF607285);
+  static const _mutedDark = Color(0xFFABB3C5);
+  static const _red = Color(0xFFC63E55);
+  static const _green = Color(0xFF25846A);
+  static const _blue = Color(0xFF1767B0);
+  final _formatter = NumberFormat.decimalPattern('en');
+  final _search = TextEditingController();
+  late DateTime _month;
+  int _selected = 0;
+  _Filter _filter = _Filter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    final today = DateTime.now();
+    _month = DateTime(today.year, today.month, 1);
+    _formatter.maximumFractionDigits = 2;
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Color get _accent => widget.isDark
+      ? const Color(0xFFFFE55D)
+      : const Color(0xFFD4A600);
+  Color get _ink => widget.isDark
+      ? const Color(0xFFF5F5F7)
+      : const Color(0xFF172534);
+  Color get _mutedText => widget.isDark ? _mutedDark : _muted;
+  Color get _surface => widget.isDark
+      ? const Color(0xFF1B1C26)
+      : Colors.white;
+  Color get _background => widget.isDark
+      ? const Color(0xFF0D0E14)
+      : Colors.white;
+  Color get _line => widget.isDark
+      ? const Color(0xFF303242)
+      : const Color(0xFFE3E9EF);
+  Color get _alt => widget.isDark
+      ? const Color(0xFF262833)
+      : const Color(0xFFF5F7FA);
+
+  String _money(num value) => _formatter.format(value);
+  String _currency(num value) => '${_money(value)} ج.م';
+
+  FinanceSummary get _summary => FinanceSummary(widget.entries);
+
+  void _goTo(int page, {_Filter filter = _Filter.all}) {
+    setState(() {
+      _selected = page;
+      _filter = filter;
+      _search.clear();
+    });
+  }
+
+  void _comingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$feature — قيد النقل من نسخة HTML. المعاينة لا تحفظ بيانات.'),
+    ));
+  }
+
+  Widget _panel({required Widget child, EdgeInsetsGeometry? padding,
+      Color? background, Border? border}) => Container(
+    decoration: BoxDecoration(
+      color: background ?? _surface,
+      borderRadius: BorderRadius.circular(19),
+      border: border ?? Border.all(color: _line),
+    ),
+    padding: padding ?? const EdgeInsets.all(16),
+    child: child,
+  );
+
+  Widget _sectionTitle(String title, {String? action, VoidCallback? onTap}) =>
+      Padding(
+        padding: const EdgeInsets.only(top: 23, bottom: 12),
+        child: Row(
+          children: [
+            Expanded(child: Text(title,
+                style: const TextStyle(fontSize: 17,
+                    fontWeight: FontWeight.w800))),
+            if (action != null)
+              TextButton(onPressed: onTap,
+                  child: Text(action, style: TextStyle(color: _accent,
+                      fontWeight: FontWeight.w700))),
+          ],
+        ),
+      );
+
+  Widget _monthPicker() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: _panel(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Row(
+        children: [
+          IconButton(
+            key: const Key('previous-month'),
+            tooltip: 'الشهر السابق',
+            onPressed: () => setState(() => _month = shiftMonth(_month, -1)),
+            icon: const Icon(Icons.chevron_right),
+          ),
+          Expanded(child: Text('🗓  ${monthTitle(_month)}',
+              key: const Key('current-month'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15,
+                  fontWeight: FontWeight.w700))),
+          IconButton(
+            key: const Key('next-month'),
+            tooltip: 'الشهر التالي',
+            onPressed: () => setState(() => _month = shiftMonth(_month, 1)),
+            icon: const Icon(Icons.chevron_left),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _hero(MonthTotals totals) => InkWell(
+    key: const Key('total-card'),
+    onTap: () => _goTo(1, filter: _Filter.deposit),
+    borderRadius: BorderRadius.circular(19),
+    child: _panel(
+      background: widget.isDark
+          ? const Color(0xFF29281B)
+          : const Color(0xFFFFF9DB),
+      border: Border.all(color: widget.isDark
+          ? const Color(0xFF5A5125)
+          : const Color(0xFFF2E6AD)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.account_balance_wallet_outlined, color: _accent,
+                size: 20),
+            const SizedBox(width: 8),
+            const Text('الإجمالي', style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 12),
+          Text(_money(totals.deposit), key: const Key('total-deposit'),
+              textDirection: TextDirection.ltr,
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800,
+                  color: _ink)),
+          Text('جنيه • إجمالي إيداعات الشهر',
+              style: TextStyle(fontSize: 11, color: _mutedText)),
+          const SizedBox(height: 20),
+          Center(child: Column(children: [
+            Text('نسبة المصروفات', style: TextStyle(
+                fontSize: 12, color: _mutedText)),
+            const SizedBox(height: 9),
+            SizedBox(height: 112, width: 112,
+              child: Stack(fit: StackFit.expand, children: [
+                CircularProgressIndicator(
+                  value: totals.ringPercentage / 100,
+                  strokeWidth: 10,
+                  backgroundColor: _alt,
+                  color: _accent,
+                  strokeCap: StrokeCap.round,
+                ),
+                Center(child: Text(
+                  '${_money(totals.spendingPercentage)}%',
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(color: _ink, fontSize: 18,
+                      fontWeight: FontWeight.w800),
+                )),
+              ]),
+            ),
+            const SizedBox(height: 9),
+            Text(totals.deposit <= 0
+                ? 'أضف إيداعًا لعرض النسبة'
+                : totals.remaining < 0
+                    ? 'مصروفاتك تجاوزت الإيداعات'
+                    : 'من إجمالي الإيداعات',
+                style: TextStyle(color: _mutedText, fontSize: 11)),
+          ])),
+        ],
+      ),
+    ),
+  );
+
+  Widget _smallMetric({required String title, required String value,
+      required IconData icon, required Color color, required VoidCallback onTap,
+      Key? key}) => Expanded(child: InkWell(
+    key: key,
+    borderRadius: BorderRadius.circular(17),
+    onTap: onTap,
+    child: _panel(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 5),
+            Expanded(child: Text(title, style: const TextStyle(
+              fontWeight: FontWeight.w700, fontSize: 12,
+            ))),
+          ]),
+          const SizedBox(height: 11),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(value, textDirection: TextDirection.ltr,
+                style: TextStyle(fontWeight: FontWeight.w800,
+                    fontSize: 19, color: color)),
+          ),
+          const SizedBox(height: 4),
+          Text('جنيه', style: TextStyle(fontSize: 10, color: _mutedText)),
+        ],
+      ),
+    ),
+  ));
+
+  Widget _empty(String message, IconData icon) =>
+      _panel(child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: Column(children: [
+          Icon(icon, size: 36, color: _mutedText),
+          const SizedBox(height: 9),
+          Text(message, textAlign: TextAlign.center,
+              style: TextStyle(color: _mutedText, fontSize: 13)),
+        ])),
+      ));
+
+  Widget _categoryList(List<MapEntry<String, double>> categories,
+      MonthTotals totals) {
+    if (categories.isEmpty) {
+      return _empty('لحد دلوقتي مفيش مصروفات في الشهر ده',
+          Icons.bar_chart_outlined);
+    }
+    return _panel(child: Column(
+      children: categories.take(6).map((category) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Column(children: [
+            Row(children: [
+              Expanded(child: Text(category.key,
+                  style: const TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w700))),
+              Text(_currency(category.value), style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 7),
+            LinearProgressIndicator(
+              value: totals.withdrawal <= 0 ? 0 :
+                  (category.value / totals.withdrawal).clamp(0, 1),
+              minHeight: 6,
+              backgroundColor: _alt,
+              color: _accent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ]),
+        ),
+      ).toList(),
+    ));
+  }
+
+  Widget _entryRow(FinanceEntry entry) {
+    final deposit = entry.type == EntryType.deposit;
+    final icon = deposit ? Icons.south_west : Icons.north_east;
+    final color = deposit ? _green : _red;
+    return InkWell(
+      onTap: () => _comingSoon('تفاصيل المعاملة'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(children: [
+          Container(height: 44, width: 44,
+              decoration: BoxDecoration(color: _alt,
+                  borderRadius: BorderRadius.circular(14)),
+              child: Icon(icon, color: color)),
+          const SizedBox(width: 11),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(entry.title, maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700,
+                      fontSize: 13)),
+              const SizedBox(height: 4),
+              Text('${formattedDate(entry.date)} · '
+                  '${entry.source.isEmpty ? 'يدوي' : entry.source}'
+                  '${entry.excluded ? ' · مستبعدة' : ''}',
+                  style: TextStyle(color: _mutedText, fontSize: 11)),
+            ],
+          )),
+          const SizedBox(width: 9),
+          Text('${deposit ? '+' : '−'}${_money(entry.amount)}',
+              textDirection: TextDirection.ltr,
+              style: TextStyle(color: color, fontSize: 14,
+                  fontWeight: FontWeight.w800)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _entryList(List<FinanceEntry> entries, {String? emptyMessage}) {
+    if (entries.isEmpty) {
+      return _empty(emptyMessage ?? 'لا توجد معاملات مطابقة في هذا الشهر',
+          Icons.receipt_long_outlined);
+    }
+    return _panel(child: Column(children: [
+      for (var i = 0; i < entries.length; i++) ...[
+        if (i != 0) Divider(height: 1, color: _line),
+        _entryRow(entries[i]),
+      ],
+    ]));
+  }
+
+  Widget _action(String label, IconData icon, VoidCallback tap) =>
+      OutlinedButton.icon(
+        onPressed: tap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _ink,
+          side: BorderSide(color: _line),
+          backgroundColor: _alt,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        icon: Icon(icon, size: 17),
+        label: Text(label, style: const TextStyle(fontSize: 12)),
+      );
+
+  Widget _home() {
+    final totals = _summary.totals(_month);
+    final categories = _summary.categoryTotals(_month);
+    final recent = _summary.recent(_month);
+    return ListView(
+      key: const Key('home-page'),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      children: [
+        _hero(totals),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _smallMetric(key: const Key('withdrawal-card'), title: 'السحب',
+            value: _money(totals.withdrawal), icon: Icons.north_east,
+            color: _red, onTap: () => _goTo(1,
+                filter: _Filter.withdrawal)),
+          const SizedBox(width: 8),
+          _smallMetric(title: 'الإيداع', value: _money(totals.deposit),
+            icon: Icons.south_west, color: _blue,
+            onTap: () => _goTo(1, filter: _Filter.deposit)),
+          const SizedBox(width: 8),
+          _smallMetric(title: 'المتبقي', value: _money(totals.remaining),
+            icon: Icons.radio_button_checked,
+            color: totals.remaining < 0 ? _red : _green,
+            onTap: () => _goTo(1)),
+        ]),
+        _monthPicker(),
+        Align(alignment: Alignment.centerRight,
+          child: _action('تحميل تقرير PDF للشهر', Icons.download_outlined,
+              () => _comingSoon('تقارير PDF'))),
+        _sectionTitle('المصروفات حسب التصنيف',
+            action: 'التفاصيل ←', onTap: () => _goTo(3)),
+        _categoryList(categories, totals),
+        _sectionTitle('آخر المعاملات',
+            action: 'عرض الكل ←', onTap: () => _goTo(1)),
+        _entryList(recent,
+            emptyMessage: 'أضف أول معاملة أو استورد رسالة SMS'),
+        const SizedBox(height: 13),
+        Wrap(spacing: 8, children: [
+          _action('استيراد رسائل SMS', Icons.sms_outlined,
+              () => _comingSoon('استيراد SMS')),
+          _action('الأقساط', Icons.calendar_month_outlined,
+              () => _goTo(2)),
+        ]),
+      ],
+    );
+  }
+
+  Widget _transactions() {
+    var entries = _summary.monthEntries(_month);
+    if (_filter != _Filter.all) {
+      final type = _filter == _Filter.deposit
+          ? EntryType.deposit : EntryType.withdrawal;
+      entries = entries.where((entry) => entry.type == type).toList();
+    }
+    final query = _search.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      entries = entries.where((entry) =>
+          [entry.title, entry.category, entry.source, entry.note]
+          .any((value) => value.toLowerCase().contains(query))).toList();
+    }
+    entries.sort((a, b) => b.date.compareTo(a.date));
+    return ListView(
+      key: const Key('transactions-page'),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      children: [
+        const Text('المعاملات', style: TextStyle(
+            fontSize: 23, fontWeight: FontWeight.w800)),
+        Text('تفاصيل كل سحب وإيداع، ومعاه إثبات العملية',
+            style: TextStyle(fontSize: 12, color: _mutedText)),
+        _monthPicker(),
+        Wrap(spacing: 8, children: [
+          _action('استيراد SMS', Icons.sms_outlined,
+              () => _comingSoon('استيراد SMS')),
+          _action('تقرير PDF', Icons.download,
+              () => _comingSoon('تقرير PDF')),
+          _action('معاملة يدوية', Icons.add,
+              () => _comingSoon('إضافة المعاملات')),
+        ]),
+        const SizedBox(height: 12),
+        Wrap(spacing: 7, children: [
+          _chip('الكل', _Filter.all),
+          _chip('↗ السحب', _Filter.withdrawal),
+          _chip('↙ الإيداع', _Filter.deposit),
+        ]),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'بحث بالاسم أو المصدر أو النص...',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _entryList(entries),
+      ],
+    );
+  }
+
+  Widget _chip(String label, _Filter filter) => ChoiceChip(
+    label: Text(label),
+    selected: _filter == filter,
+    selectedColor: widget.isDark
+        ? const Color(0xFF514820)
+        : const Color(0xFFFFF5C7),
+    onSelected: (_) => setState(() => _filter = filter),
+    shape: StadiumBorder(side: BorderSide(color: _line)),
+  );
+
+  Widget _installments() => ListView(
+    key: const Key('installments-page'),
+    padding: const EdgeInsets.all(18),
+    children: [
+      const Text('الأقساط', style: TextStyle(fontSize: 23,
+          fontWeight: FontWeight.w800)),
+      const SizedBox(height: 14),
+      _empty('بننقل جدول الأقساط ودفعاتها من نسخة HTML، '
+          'ومش هنعرض بيانات وهمية.', Icons.calendar_month_outlined),
+      const SizedBox(height: 10),
+      _action('إضافة قسط', Icons.add,
+          () => _comingSoon('إضافة الأقساط')),
+    ],
+  );
+
+  Widget _analytics() {
+    final totals = _summary.totals(_month);
+    return ListView(
+      key: const Key('analytics-page'),
+      padding: const EdgeInsets.all(18),
+      children: [
+        const Text('التحليلات', style: TextStyle(fontSize: 23,
+            fontWeight: FontWeight.w800)),
+        _monthPicker(),
+        _panel(child: Column(children: [
+          _analyticsRow('الإيداعات', _currency(totals.deposit)),
+          Divider(color: _line),
+          _analyticsRow('المصروفات', _currency(totals.withdrawal)),
+          Divider(color: _line),
+          _analyticsRow('المتبقي', _currency(totals.remaining)),
+        ])),
+        _sectionTitle('المصروفات حسب التصنيف'),
+        _categoryList(_summary.categoryTotals(_month), totals),
+      ],
+    );
+  }
+
+  Widget _analyticsRow(String name, String value) =>
+      Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          Expanded(child: Text(name)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ]),
+      );
+
+  Widget _settings() => ListView(
+    key: const Key('settings-page'),
+    padding: const EdgeInsets.all(18),
+    children: [
+      const Text('الإعدادات', style: TextStyle(fontSize: 23,
+          fontWeight: FontWeight.w800)),
+      const SizedBox(height: 14),
+      _panel(child: Column(children: [
+        ListTile(
+          leading: const Icon(Icons.dark_mode_outlined),
+          title: const Text('الوضع الداكن'),
+          trailing: Switch(
+            value: widget.isDark,
+            onChanged: (_) => widget.onToggleTheme?.call(),
+          ),
+          onTap: widget.onToggleTheme,
+        ),
+        Divider(color: _line),
+        ListTile(
+          leading: const Icon(Icons.language_outlined),
+          title: const Text('اللغة'),
+          subtitle: const Text('العربية — بننقل التبديل للإنجليزية'),
+          onTap: () => _comingSoon('اللغة الإنجليزية'),
+        ),
+        if (widget.onSignOut != null) ...[
+          Divider(color: _line),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('تسجيل الخروج'),
+            onTap: widget.onSignOut,
+          ),
+        ],
+      ])),
+      const SizedBox(height: 16),
+      Text('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.',
+          style: TextStyle(color: _mutedText, fontSize: 12)),
+    ],
+  );
+
+  Widget _tab(String label, IconData icon, int index) => Expanded(
+    child: InkWell(
+      onTap: () => _goTo(index),
+      child: Padding(padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 23, color: _selected == index ? _accent : _mutedText),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 10,
+              color: _selected == index ? _accent : _mutedText,
+              fontWeight: _selected == index
+                  ? FontWeight.w800 : FontWeight.w400)),
+        ]),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _background,
+        toolbarHeight: 75,
+        titleSpacing: 18,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('أهلًا بيك 👋',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+            Text('فلوسك في مكان واحد',
+                style: TextStyle(fontSize: 11, color: _mutedText)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Language',
+            onPressed: () => _comingSoon('اللغة الإنجليزية'),
+            icon: const Text('EN', style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w800)),
+          ),
+          IconButton(
+            tooltip: 'تغيير المظهر',
+            onPressed: widget.onToggleTheme,
+            icon: Icon(widget.isDark
+                ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+          ),
+          IconButton(
+            key: const Key('settings-action'),
+            tooltip: 'الإعدادات',
+            onPressed: () => _goTo(4),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: SafeArea(
+        child: switch (_selected) {
+          0 => _home(),
+          1 => _transactions(),
+          2 => _installments(),
+          3 => _analytics(),
+          _ => _settings(),
+        },
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF15161D) : _surface,
+            border: Border(top: BorderSide(color: _line)),
+          ),
+          child: Row(children: [
+            _tab('الرئيسية', Icons.home_outlined, 0),
+            _tab('المعاملات', Icons.receipt_long_outlined, 1),
+            const SizedBox(width: 64),
+            _tab('الأقساط', Icons.calendar_month_outlined, 2),
+            _tab('التحليلات', Icons.bar_chart_outlined, 3),
+          ]),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        key: const Key('add-transaction'),
+        onPressed: () => _comingSoon('إضافة المعاملات'),
+        backgroundColor: _accent,
+        foregroundColor: const Color(0xFF222012),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        tooltip: 'إضافة معاملة جديدة',
+        child: const Icon(Icons.add, size: 30),
+      ),
+    );
+  }
+}
