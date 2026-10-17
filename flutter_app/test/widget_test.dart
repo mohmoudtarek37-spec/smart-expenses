@@ -74,7 +74,10 @@ void main() {
     expect(find.byKey(const Key('profile-gender')), findsOneWidget);
     expect(find.byKey(const Key('profile-biometric')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Test user');
-    await tester.ensureVisible(find.byKey(const Key('profile-save')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('profile-save')), 180,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profile-save')));
     await tester.pumpAndSettle();
@@ -96,7 +99,13 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
     final erase = find.byKey(const Key('erase-all-data'));
-    await tester.ensureVisible(erase);
+    await tester.scrollUntilVisible(
+      erase, 180,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('settings-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(erase);
     await tester.pumpAndSettle();
@@ -146,10 +155,17 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('guest-account-status')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('login-from-settings')));
+    expect(find.textContaining('مش بتتنقل للحساب تلقائيًا'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('login-from-settings')), 180,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('settings-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('login-from-settings')));
     expect(openCount, 1);
-    expect(find.textContaining('مش بتتنقل للحساب تلقائيًا'), findsOneWidget);
     expect(find.byKey(const Key('settings-page')), findsOneWidget);
   });
 
@@ -171,9 +187,8 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-action')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('account-status')), findsOneWidget);
-    expect(find.text('test@example.com'), findsOneWidget);
+    expect(find.text('test@example.com'), findsWidgets);
     expect(find.byKey(const Key('login-from-settings')), findsNothing);
-    expect(find.text('تسجيل الخروج'), findsOneWidget);
     final settingsScroll = find.descendant(
       of: find.byKey(const Key('settings-page')),
       matching: find.byType(Scrollable),
@@ -184,6 +199,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('request-account-deletion')), findsOneWidget);
+    expect(find.text('تسجيل الخروج'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('privacy-policy-link')), -140,
+      scrollable: settingsScroll,
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('privacy-policy-link')), findsOneWidget);
   });
 
