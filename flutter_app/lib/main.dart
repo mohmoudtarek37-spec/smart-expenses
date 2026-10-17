@@ -633,12 +633,18 @@ class _PasswordRecoveryPageState extends State<_PasswordRecoveryPage> {
       ));
       Navigator.of(context).pop();
     } on AuthException catch (e) {
-      if (mounted) setState(() => _message = AuthFeedback.serverError(e.message));
+      if (mounted) {
+        setState(() => _message = AuthFeedback.serverError(e.message));
+      }
     } catch (_) {
-      if (mounted) setState(() => _message =
-          'تعذر تغيير كلمة المرور. اطلب رابط استعادة جديد.');
+      if (mounted) {
+        setState(() => _message =
+            'تعذر تغيير كلمة المرور. اطلب رابط استعادة جديد.');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 

@@ -1414,13 +1414,19 @@ class _FinanceShellState extends State<FinanceShell> {
       await _replaceLedgerLocally(remote.ledger);
       if (!mounted) return;
       await _rememberCloudRevision(remote.revision);
-      if (mounted) setState(() =>
+      if (mounted) {
+        setState(() =>
           _autoSyncStatus = 'تم استرجاع بيانات الحساب تلقائيًا.');
+      }
     } catch (_) {
-      if (mounted) setState(() => _autoSyncStatus =
+      if (mounted) {
+        setState(() => _autoSyncStatus =
           'تعذر الاسترجاع التلقائي. بيانات الجهاز زي ما هي.');
+      }
     } finally {
-      if (mounted) setState(() => _cloudBusy = false);
+      if (mounted) {
+        setState(() => _cloudBusy = false);
+      }
     }
   }
 
@@ -1455,16 +1461,24 @@ class _FinanceShellState extends State<FinanceShell> {
       final revision = await service.push(local, expectedRevision: checkpoint);
       if (!mounted || client.auth.currentUser?.id != accountId) return;
       await _rememberCloudRevision(revision);
-      if (mounted) setState(() =>
+      if (mounted) {
+        setState(() =>
           _autoSyncStatus = 'تم حفظ آخر التعديلات سحابيًا.');
+      }
     } on CloudConflict {
-      if (mounted) setState(() => _autoSyncStatus =
+      if (mounted) {
+        setState(() => _autoSyncStatus =
           'جهاز آخر سبقك بتعديلات. تم إيقاف الرفع دون فقد بيانات.');
+      }
     } catch (_) {
-      if (mounted) setState(() => _autoSyncStatus =
+      if (mounted) {
+        setState(() => _autoSyncStatus =
           'الإنترنت أو السحابة غير متاحين. التعديل محفوظ محليًا.');
+      }
     } finally {
-      if (mounted) setState(() => _cloudBusy = false);
+      if (mounted) {
+        setState(() => _cloudBusy = false);
+      }
     }
   }
 

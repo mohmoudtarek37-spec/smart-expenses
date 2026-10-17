@@ -139,7 +139,7 @@ class _TransactionEditorState extends State<TransactionEditor> {
         ));
         return;
       }
-      setState(() => _receiptDataUrl = 'data:' + mime + ';base64,' + base64Encode(data));
+      setState(() => _receiptDataUrl = 'data:' + mime! + ';base64,' + base64Encode(data));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
