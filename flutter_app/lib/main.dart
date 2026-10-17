@@ -296,6 +296,53 @@ class _SignInPageState extends State<_SignInPage> {
     }
   }
 
+  Future<void> _recoverPassword() async {
+    if (_busy) return;
+    final email = _email.text.trim();
+    if (!AuthFeedback.validEmail(email)) {
+      setState(() {
+        _statusIsError = true;
+        _status = 'اكتب بريدك الإلكتروني الصحيح علشان نبعث رابط الاستعادة.';
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _statusIsError = false;
+      _status = 'جاري طلب رسالة استعادة كلمة المرور...';
+    });
+    try {
+      await Supabase.instance.client.auth
+          .resetPasswordForEmail(email)
+          .timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      setState(() {
+        _status = 'لو الإيميل مربوط بحساب صالح، هتوصلك رسالة استعادة. '
+            'راجع البريد وSpam، وما تشاركش رابط الاستعادة مع أي حد.';
+      });
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = AuthFeedback.serverError(e.message);
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'السيرفر اتأخر في الاستجابة. راجع بريدك قبل إعادة المحاولة.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _statusIsError = true;
+        _status = 'تعذر طلب الاستعادة. تأكد من الإنترنت وخدمة الإيميل.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _resendConfirmation() async {
     if (_busy) return;
     final email = _email.text.trim();
@@ -431,6 +478,11 @@ class _SignInPageState extends State<_SignInPage> {
                   key: const Key('create-account'),
                   onPressed: _busy ? null : () => _authenticate(register: true),
                   child: const Text('إنشاء حساب جديد'),
+                ),
+                TextButton(
+                  key: const Key('forgot-password'),
+                  onPressed: _busy ? null : _recoverPassword,
+                  child: const Text('نسيت كلمة المرور؟'),
                 ),
                 TextButton(
                   key: const Key('resend-confirmation'),
