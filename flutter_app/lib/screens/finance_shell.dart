@@ -12,6 +12,7 @@ import '../finance/backup_codec.dart';
 import '../finance/guest_migration.dart';
 import '../finance/analytics_models.dart';
 import 'premium_page.dart';
+import 'account_profile_page.dart';
 import '../finance/monthly_report.dart';
 import '../finance/installment_calendar.dart';
 import '../finance/due_notices.dart';
@@ -1899,231 +1900,361 @@ class _FinanceShellState extends State<FinanceShell> with WidgetsBindingObserver
     }
   }
 
+  Future<void> _openAccountProfile() async {
+    if (!_editable) return;
+    final profile = _prefs['profile'] is Map
+        ? Map<String, dynamic>.from(_prefs['profile'] as Map)
+        : <String, dynamic>{};
+    final updated = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => AccountProfilePage(
+        initial: profile,
+        scope: widget.cloudEnabled
+            ? (Supabase.instance.client.auth.currentUser?.id ?? 'guest')
+            : 'guest',
+        email: widget.accountEmail,
+        isEnglish: widget.isEnglish,
+      )),
+    );
+    if (updated == null || !mounted || !_editable) return;
+    await _applyLedger(InstallmentLedger(
+      entries: _entries,
+      installments: _plans,
+      customCategories: _customCategories,
+      prefs: {..._prefs, 'profile': updated},
+      createdAt: _createdAt,
+    ), _lang('تم حفظ بيانات الحساب.', 'Account profile saved.'));
+  }
+
+  Future<void> _inviteFriends() async {
+    try {
+      await SharePlus.instance.share(ShareParams(
+        text: _lang('جرّب تطبيق حساباتي لإدارة مصروفاتك وأقساطك. '
+            'تابع حساباتي على https://mohmoudtarek37-spec.github.io/smart-expenses/',
+            'Try Hesabaty to manage expenses and installments. '
+            'https://mohmoudtarek37-spec.github.io/smart-expenses/'),
+      ));
+    } catch (_) {
+      if (mounted) _showCloudMessage(_lang(
+        'تعذر فتح مشاركة الرابط.', 'Could not open sharing.'));
+    }
+  }
+
+  /// Deleting financial data must not allow an older cloud snapshot to restore
+  /// it. A signed-in user must be online and completely in sync to proceed.
+  Future<void> _eraseAllData() async {
+    if (!_editable || widget.store is! LedgerStore) return;
+    final input = TextEditingController();
+    final expected = widget.isEnglish ? 'DELETE' : 'حذف';
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(_lang('مسح كل البيانات', 'Erase all data')),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(_lang(
+              widget.cloudEnabled
+                  ? 'ده هيمسح معاملات الحساب والأقساط والملف الشخصي من الجهاز '
+                    'والنسخة السحابية بعد التأكد من تطابق النسختين. '
+                    'حسابك نفسه هيفضل موجود. صدّر نسخة احتياطية الأول.'
+                  : 'ده هيمسح معاملات الضيف والأقساط والملف الشخصي '
+                    'والنسخ المحلية المرتبطة بيه. حسابك (إن وجد) مش هيتحذف. '
+                    'صدّر نسخة احتياطية الأول.',
+              widget.cloudEnabled
+                  ? 'This removes the account ledger, installments and profile '
+                    'from this device AND the cloud after checking for conflicts. '
+                    'Your login remains. Export a backup first.'
+                  : 'This removes guest transactions, installments, profile '
+                    'and local restore copies. Export a backup first.',
+            )),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('erase-confirm-text'),
+              controller: input,
+              onChanged: (_) => update(() {}),
+              decoration: InputDecoration(
+                labelText: _lang('اكتب «حذف» للتأكيد', 'Type DELETE to confirm'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_lang('إلغاء', 'Cancel'))),
+            FilledButton(
+              key: const Key('erase-confirm-button'),
+              onPressed: input.text.trim() == expected
+                  ? () => Navigator.pop(dialogContext, true) : null,
+              child: Text(_lang('مسح نهائي', 'Erase permanently')),
+            ),
+          ],
+        ),
+      ),
+    );
+    input.dispose();
+    if (accepted != true || !mounted || !_editable) return;
+    setState(() => _saving = true);
+    try {
+      final store = widget.store! as LedgerStore;
+      final previous = _currentLedger;
+      final empty = const InstallmentLedger(entries: [], installments: []);
+      int? revision;
+      if (widget.cloudEnabled) {
+        final cloud = CloudFinanceSync(Supabase.instance.client);
+        final remote = await cloud.fetch();
+        if (!mounted) return;
+        if (remote != null) {
+          if (!LedgerContent.equivalent(remote.ledger, previous)) {
+            throw const CloudConflict();
+          }
+          // Only the exact reviewed revision can be changed.
+          revision = await cloud.push(empty,
+              expectedRevision: remote.revision);
+        } else if (_cloudRevision != null) {
+          throw const CloudConflict();
+        }
+      }
+      if (store is FullAccountDataResetStore) {
+        await (store as FullAccountDataResetStore).clearAllLocalData();
+      } else {
+        await store.saveLedger(empty);
+      }
+      if (!mounted) return;
+      setState(() {
+        _entries = [];
+        _plans = [];
+        _customCategories = [];
+        _prefs = {};
+        _createdAt = '';
+        _cloudRevision = null;
+        _month = DateTime(DateTime.now().year, DateTime.now().month);
+      });
+      if (revision != null) {
+        await _rememberCloudRevision(revision);
+      }
+      if (mounted) _showCloudMessage(_lang(
+        'تم مسح بيانات هذا الحساب. تسجيل الدخول نفسه لم يُحذف.',
+        'Financial data erased. Your login account still exists.'));
+    } on CloudConflict {
+      if (mounted) _showCloudMessage(_lang(
+        'النسخة السحابية مختلفة؛ وقفنا المسح لحماية بيانات جهاز تاني. '
+        'راجع المزامنة أولًا.',
+        'Cloud data differs. Erase stopped to protect changes on another device.'));
+    } catch (_) {
+      if (mounted) _showCloudMessage(_lang(
+        'تعذر إكمال المسح؛ راجع الاتصال وحالة البيانات قبل المحاولة مجددًا.',
+        'Could not finish erasing; check connectivity and cloud state.'));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _settingsHeading(String ar, String en) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 4, 4, 9),
+    child: Text(_lang(ar, en),
+      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+  );
+
   Widget _settings() => ListView(
     key: const Key('settings-page'),
     padding: const EdgeInsets.all(18),
     children: [
-      Text(_lang('الإعدادات', 'Settings'), style: const TextStyle(fontSize: 23,
-          fontWeight: FontWeight.w800)),
+      Text(_lang('الإعدادات', 'Settings'),
+          style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
       const SizedBox(height: 14),
-      _panel(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.cloudEnabled) ...[
-            ListTile(
-              key: const Key('account-status'),
-              leading: const Icon(Icons.verified_user_outlined),
-              title: Text(_lang('الحساب متصل', 'Connected account')),
-              subtitle: Text(widget.accountEmail ?? _lang('تم تسجيل الدخول', 'Signed in')),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(_lang('بيانات الحساب منفصلة عن معاملات الضيف المحفوظة '
-                  'على نفس الموبايل. المزامنة اختيارية.',
-                  'Your account data is separate from guest transactions. '
-                  'Cloud sync is optional.'),
-                  style: const TextStyle(fontSize: 12)),
-            ),
-          ] else ...[
-            ListTile(
-              key: const Key('guest-account-status'),
-              leading: const Icon(Icons.person_outline),
-              title: Text(_lang('استخدام كضيف — بدون حساب', 'Guest mode — no account')),
-              subtitle: Text(_lang('حساباتي شغال عادي، ومش مطلوب تسجيل الدخول.', 'Use Hesabaty without signing in.')),
-            ),
-            if (widget.onOpenAuth != null) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(_lang('التسجيل اختياري للمزامنة. '
-                    'معاملات الضيف بتفضل محفوظة على جهازك '
-                    'ومش بتتنقل للحساب تلقائيًا.',
-                    'An account is optional in this preview. Guest data '
-                    'stays on this device until you explicitly transfer it.'),
-                    style: const TextStyle(fontSize: 12)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: FilledButton.icon(
-                  key: const Key('login-from-settings'),
-                  onPressed: widget.onOpenAuth,
-                  icon: const Icon(Icons.login),
-                  label: Text(_lang('تسجيل الدخول أو إنشاء حساب', 'Sign in or create an account')),
-                ),
-              ),
-            ] else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(_lang('المزامنة غير مفعلة في نسخة الاختبار دي.', 'Cloud sync is not available in this preview.'),
-                    style: const TextStyle(fontSize: 12)),
-              ),
-          ],
-          const Divider(),
-          ListTile(
-          leading: const Icon(Icons.dark_mode_outlined),
-          title: Text(_lang('الوضع الداكن', 'Dark mode')),
-          trailing: Switch(
-            value: widget.isDark,
-            onChanged: (_) => widget.onToggleTheme?.call(),
-          ),
-          onTap: widget.onToggleTheme,
+      _settingsHeading('الحساب', 'Account'),
+      _panel(child: Column(children: [
+        ListTile(
+          key: const Key('profile-settings'),
+          leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+          title: Text((_prefs['profile'] is Map &&
+              ((_prefs['profile'] as Map)['name']?.toString() ?? '').isNotEmpty)
+              ? (_prefs['profile'] as Map)['name'].toString()
+              : _lang('اسم المستخدم', 'Username')),
+          subtitle: Text(widget.accountEmail ??
+              _lang('ملف الضيف على الموبايل', 'Guest profile on this device')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _editable ? _openAccountProfile : null,
         ),
+        if (widget.cloudEnabled)
+          ListTile(
+            key: const Key('account-status'),
+            leading: const Icon(Icons.verified_user_outlined),
+            title: Text(_lang('الحساب متصل', 'Connected account')),
+            subtitle: Text(widget.accountEmail ?? ''),
+          )
+        else
+          ListTile(
+            key: const Key('guest-account-status'),
+            leading: const Icon(Icons.person_outline),
+            title: Text(_lang('استخدام كضيف — بدون حساب',
+                'Guest mode — no account')),
+            subtitle: Text(_lang(
+              'المعاملات محفوظة على جهازك ومش بتتنقل للحساب تلقائيًا.',
+              'Transactions are stored on this device and are not '
+              'transferred to an account automatically.')),
+          ),
         Divider(color: _line),
         ListTile(
+          key: const Key('language-settings'),
           leading: const Icon(Icons.language_outlined),
           title: Text(_lang('اللغة', 'Language')),
-          subtitle: Text(widget.isEnglish ? 'English (preview)' : 'العربية'),
+          subtitle: Text(widget.isEnglish ? 'English' : 'العربية'),
           onTap: widget.onToggleLanguage,
         ),
-        if (widget.onSignOut != null) ...[
-          Divider(color: _line),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: Text(_lang('تسجيل الخروج', 'Sign out')),
-            onTap: widget.onSignOut,
-          ),
-        ],
+        ListTile(
+          key: const Key('theme-settings'),
+          leading: const Icon(Icons.dark_mode_outlined),
+          title: Text(_lang('الوضع الداكن', 'Dark mode')),
+          trailing: Switch(value: widget.isDark,
+              onChanged: (_) => widget.onToggleTheme?.call()),
+          onTap: widget.onToggleTheme,
+        ),
       ])),
-      const SizedBox(height: 16),
+      const SizedBox(height: 18),
+      _settingsHeading('البيانات', 'Data'),
+      _panel(child: Column(children: [
+        ListTile(
+          key: const Key('invite-friends'),
+          leading: const Icon(Icons.share_outlined),
+          title: Text(_lang('ادعُ أصدقاءك', 'Invite friends')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _inviteFriends,
+        ),
+        ListTile(
+          key: const Key('export-backup'),
+          leading: const Icon(Icons.ios_share_outlined),
+          title: Text(_lang('تصدير البيانات', 'Export data')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _editable && widget.store is LedgerStore
+              ? _exportBackup : null,
+        ),
+        ListTile(
+          key: const Key('import-backup'),
+          leading: const Icon(Icons.file_download_outlined),
+          title: Text(_lang('استيراد المعاملات', 'Import transactions')),
+          subtitle: Text(_lang('من نسخة حساباتي الاحتياطية',
+              'From a Hesabaty backup file')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _editable && widget.store is LedgerStore
+              ? _importBackup : null,
+        ),
+        if (widget.store is BackupRestorableStore)
+          ListTile(
+            key: const Key('undo-backup-import'),
+            leading: const Icon(Icons.restore),
+            title: Text(_lang('التراجع عن آخر استيراد', 'Undo last import')),
+            onTap: _editable ? _restoreBeforeLastImport : null,
+          ),
+        ListTile(
+          key: const Key('erase-all-data'),
+          leading: const Icon(Icons.delete_forever_outlined,
+              color: Colors.red),
+          title: Text(_lang('مسح كل البيانات', 'Erase all data'),
+              style: const TextStyle(color: Colors.red)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.red),
+          onTap: _editable ? _eraseAllData : null,
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Text(_lang(
+            'ملفات التصدير غير مشفرة؛ احتفظ بيها في مكان آمن.',
+            'Exported files are not encrypted. Keep them safe.'),
+            style: TextStyle(color: _mutedText, fontSize: 12))),
+      ])),
       if (widget.cloudEnabled && widget.guestStore is LedgerStore) ...[
+        const SizedBox(height: 12),
         _panel(child: ListTile(
           key: const Key('import-guest-data'),
           leading: const Icon(Icons.move_to_inbox_outlined),
-          title: Text(_lang('نقل بيانات الضيف لحسابي', 'Move guest data to my account')),
-          subtitle: Text(_lang('بموافقتك، من غير مسح النسخة الأصلية', 'With your consent, without deleting the original')),
-          trailing: const Icon(Icons.chevron_left),
+          title: Text(_lang('نقل بيانات الضيف لحسابي',
+              'Move guest data to my account')),
           onTap: _editable ? _importGuestData : null,
         )),
-        const SizedBox(height: 16),
       ],
-      if (widget.cloudEnabled)
-        _panel(child: ListTile(
-          key: const Key('premium-settings'),
-          leading: const Icon(Icons.workspace_premium_outlined),
-          title: Text(_lang('حساباتي Premium', 'Hesabaty Premium')),
-          subtitle: Text(_lang('الاشتراك عبر Google Play والتحقق من السيرفر', 'Google Play subscription with server verification')),
-          trailing: const Icon(Icons.chevron_left),
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => PremiumPage(isEnglish: widget.isEnglish)),
-          ),
-        )),
-      const SizedBox(height: 16),
-      if (widget.cloudEnabled)
-        _panel(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(_lang('الحساب السحابي', 'Cloud account'),
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-            const SizedBox(height: 8),
-            Text(_lang('مزامنة يدوية تجريبية. لن ندمج أو نستبدل '
-                'بيانات جهازين مختلفين تلقائيًا.',
-                'Cloud sync is experimental. Conflicting versions '
-                'require manual review to prevent data loss.'),
-                style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: const Key('sync-cloud'),
-              onPressed: _editable && !_cloudBusy ? _syncCloudNow : null,
-              icon: const Icon(Icons.cloud_sync_outlined),
-              label: Text(_lang('مراجعة ومزامنة حسابي الآن', 'Review and sync my account')),
-            ),
-            Text(_cloudQuotaLabel(),
-                key: const Key('cloud-quota-label'),
-                style: const TextStyle(fontSize: 12)),
-            if (_autoSyncStatus.isNotEmpty)
-              Text(_autoSyncStatus, key: const Key('cloud-sync-status'),
-                style: const TextStyle(fontSize: 12)),
-            if (_cloudBusy) const LinearProgressIndicator(),
-          ],
-        )),
-      const SizedBox(height: 16),
-      _panel(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(_lang('النسخ الاحتياطية', 'Backups'),
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-          const SizedBox(height: 8),
-          Text(_lang('تصدير أو استيراد ملف JSON. الاستيراد بيستبدل بيانات '
-              'النسخة التجريبية بعد ما تراجع عدد المعاملات والأقساط.',
-              'Export or import a JSON backup. Import replaces the current '
-              'data only after you review the records.'),
-              style: TextStyle(color: _mutedText, fontSize: 12)),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            key: const Key('export-backup'),
-            onPressed: _editable && widget.store is LedgerStore
-                ? _exportBackup : null,
-            icon: const Icon(Icons.file_download_outlined),
-            label: const Text('تصدير نسخة احتياطية'),
-          ),
-          OutlinedButton.icon(
-            key: const Key('import-backup'),
-            onPressed: _editable && widget.store is LedgerStore
-                ? _importBackup : null,
-            icon: const Icon(Icons.file_upload_outlined),
-            label: Text(_lang('استيراد نسخة من HTML أو Flutter', 'Import an HTML or Flutter backup')),
-          ),
-          if (widget.store is BackupRestorableStore)
-            TextButton.icon(
-              key: const Key('undo-backup-import'),
-              onPressed: _editable ? _restoreBeforeLastImport : null,
-              icon: const Icon(Icons.restore_outlined),
-              label: Text(_lang('استعادة البيانات قبل آخر استيراد', 'Undo last backup import')),
-            ),
-          const SizedBox(height: 8),
-          Text(_lang('تنبيه: ملف JSON غير مشفر. '
-              'احفظه بعيدًا عن الآخرين، وما تعتمدش على النسخة الحالية '
-              'كبديل لتطبيق حساباتي القديم.',
-              'Warning: JSON backup files are not encrypted. '
-              'Keep them private and do not rely on this preview '
-              'as your only copy.'),
-              style: const TextStyle(fontSize: 11)),
-        ],
-      )),
-      const SizedBox(height: 16),
-      _panel(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(_lang('التصنيفات المخصصة', 'Custom categories'),
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-          for (final category in _customCategories)
-            ListTile(
-              title: Text(category),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: _lang('حذف التصنيف', 'Delete category'),
-                onPressed: _editable
-                    ? () => _removeCustomCategory(category) : null,
-              ),
-            ),
-          OutlinedButton.icon(
-            key: const Key('add-custom-category'),
-            onPressed: _editable ? _addCustomCategory : null,
-            icon: const Icon(Icons.add),
-            label: Text(_lang('إضافة تصنيف جديد', 'Add a custom category')),
-          ),
-        ],
-      )),
-      const SizedBox(height: 16),
+      const SizedBox(height: 18),
+      _settingsHeading('الخدمات', 'Services'),
       _panel(child: Column(children: [
+        if (widget.cloudEnabled)
+          ListTile(
+            key: const Key('premium-settings'),
+            leading: const Icon(Icons.workspace_premium_outlined),
+            title: Text(_lang('حساباتي Premium', 'Hesabaty Premium')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(builder: (_) => PremiumPage(
+                isEnglish: widget.isEnglish))),
+          ),
+        if (widget.cloudEnabled) ...[
+          ListTile(
+            key: const Key('sync-cloud'),
+            leading: const Icon(Icons.cloud_sync_outlined),
+            title: Text(_lang('مراجعة ومزامنة حسابي الآن',
+                'Review and sync account')),
+            subtitle: Text(_cloudQuotaLabel()),
+            onTap: _editable ? _syncCloudNow : null,
+          ),
+          if (_autoSyncStatus.isNotEmpty)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(_autoSyncStatus,
+                key: const Key('cloud-sync-status'),
+                style: const TextStyle(fontSize: 12))),
+        ],
+        ListTile(
+          key: const Key('custom-categories'),
+          title: Text(_lang('التصنيفات المخصصة', 'Custom categories')),
+          subtitle: Text(_lang('إضافة التصنيفات الجديدة وإدارتها',
+              'Create and manage custom categories')),
+          leading: const Icon(Icons.category_outlined),
+        ),
+        for (final category in _customCategories)
+          ListTile(title: Text(category), trailing: IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _editable ? () => _removeCustomCategory(category) : null)),
+        ListTile(
+          key: const Key('add-custom-category'),
+          leading: const Icon(Icons.add_circle_outline),
+          title: Text(_lang('إضافة تصنيف جديد', 'Add custom category')),
+          onTap: _editable ? _addCustomCategory : null,
+        ),
         ListTile(
           key: const Key('privacy-policy-link'),
           leading: const Icon(Icons.privacy_tip_outlined),
           title: Text(_lang('سياسة الخصوصية', 'Privacy policy')),
-          trailing: const Icon(Icons.open_in_new),
           onTap: () => _openLegalResource('privacy-policy.html'),
         ),
+      ])),
+      const SizedBox(height: 20),
+      _panel(child: Column(children: [
+        if (widget.cloudEnabled)
+          ListTile(
+            key: const Key('logout-settings'),
+            leading: const Icon(Icons.logout_outlined),
+            title: Text(_lang('تسجيل الخروج', 'Sign out')),
+            onTap: widget.onSignOut,
+          )
+        else
+          ListTile(
+            key: const Key('login-from-settings'),
+            leading: const Icon(Icons.login_outlined),
+            title: Text(_lang('تسجيل الدخول أو إنشاء حساب',
+                'Sign in or create account')),
+            onTap: widget.onOpenAuth,
+          ),
         if (widget.cloudEnabled)
           ListTile(
             key: const Key('request-account-deletion'),
-            leading: const Icon(Icons.person_remove_outlined),
-            title: Text(_lang('طلب حذف حسابي والبيانات المرتبطة بيه', 'Request account and data deletion')),
-            subtitle: Text(_lang('طلب آمن، مع التحقق من ملكية الحساب', 'Secure request with identity verification')),
-            trailing: const Icon(Icons.open_in_new),
+            leading: const Icon(Icons.person_remove_outlined,
+                color: Colors.red),
+            title: Text(_lang('حذف الحساب', 'Delete account'),
+                style: const TextStyle(color: Colors.red)),
+            subtitle: Text(_lang('فتح صفحة طلب حذف الحساب',
+                'Open the account deletion request page')),
             onTap: _requestAccountDeletion,
           ),
       ])),
       const SizedBox(height: 16),
-      Text(_lang('حساباتي 2.0 — معاينة تطوير، مش بديل للنسخة الحالية.', 'Hesabaty 2.0 — Preview build, not the final release.'),
+      Text(_lang('حساباتي 2.0 — نسخة تجريبية للتقييم.',
+          'Hesabaty 2.0 — Preview for review.'),
           style: TextStyle(color: _mutedText, fontSize: 12)),
     ],
   );
