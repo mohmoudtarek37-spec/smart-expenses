@@ -34,7 +34,7 @@ class BackupCodec {
       'installments': ledger.installments.map((plan) => plan.toJson()).toList(),
       'customCategories': ledger.customCategories,
       'prefs': ledger.prefs,
-      'createdAt': ledger.createdAt.isNotEmpty ? ledger.createdAt : now,
+      'createdAt': ledger.createdAt,
     };
     final encoded = const JsonEncoder.withIndent('  ').convert({
       'format': 'hesabaty-backup',
