@@ -236,9 +236,12 @@ class InstallmentLedger {
     return InstallmentLedger(entries: entries, installments: updated);
   }
 
-  /// Deleting a plan leaves historical withdrawal records untouched.
+  /// Removing a plan does not delete paid withdrawal records. Detach the
+  /// old references so those preserved transactions can be edited normally.
   InstallmentLedger withoutPlan(String id) => InstallmentLedger(
-    entries: entries,
+    entries: entries.map((entry) => entry.linkedInstallment == id
+        ? entry.copyWith(linkedInstallment: '', installmentCreated: false)
+        : entry).toList(),
     installments: installments.where((i) => i.id != id).toList(),
   );
 
